@@ -357,13 +357,7 @@ app.use((req, res, next) => {
       "Request validation failed"
     ));
   }
-  
-  if (security.isBlocked(req.ip)) {
-    return res.status(429).send(generateErrorPage(
-      "Rate Limited", 
-      "Too many requests from your IP address"
-    ));
-  }
+
   
   next();
 });
@@ -1570,3 +1564,4 @@ if (require.main === module) {
 
 
 module.exports = { app, startWebsite, security };
+
