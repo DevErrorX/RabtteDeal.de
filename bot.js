@@ -54,7 +54,7 @@ class SecurityManager {
     this.cleanupInterval = setInterval(() => this.cleanup(), 300000); // 5 minutes
   }
 
-  checkRateLimit(identifier, limit = 50, window = 60000) { // زيادة الحد إلى 20 طلب في الدقيقة
+  checkRateLimit(identifier, limit = 50, window = 60000) { 
     const now = Date.now();
     const key = `rate_${identifier}`;
     
@@ -368,35 +368,37 @@ app.use((req, res, next) => {
   next();
 });
 
-// استبدال الإعدادات الحالية بهذه الإعدادات
+// Updated rate limit configurations
 const generalLimiter = rateLimit({
-  windowMs: 60 * 1000, // نافذة زمنية: 1 دقيقة
-  max: 200, // 200 طلب في الدقيقة (زيادة من 100)
+  windowMs: 60 * 1000, // 1 minute
+  max: 100, // 100 requests per minute (up from 50)
   message: { error: 'Too many requests from this IP' },
   skip: (req) => {
-    // تخطي بعض المسارات المهمة
-    return req.path === '/' || req.path.startsWith('/static/');
+    // Skip rate limiting for static assets and homepage
+    return req.path === '/' || 
+           req.path.startsWith('/static/') ||
+           req.path.startsWith('/deal/')
   }
 });
 
 const redirectLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 150, // 150 طلب في الدقيقة (زيادة من 100)
-  message: generateErrorPage("Rate Limit Exceeded", "Too many redirect requests. Please wait before trying again."),
+  max: 50, // 50 redirects per minute
+  message: generateErrorPage("Rate Limit Exceeded", "Please wait before making more requests"),
   skip: (req) => security.isBlocked(req.ip),
   onLimitReached: (req) => {
     security.logSuspiciousActivity(req.ip, 'redirect_rate_limit');
-    console.warn(`🚫 Redirect rate limit exceeded for IP: ${req.ip}`);
   }
 });
 
 const apiLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 150, // 150 طلب في الدقيقة (زيادة من 100)
-  message: { error: 'Too many requests' },
-  keyGenerator: (req) => {
-    return req.headers['x-forwarded-for'] || req.ip;
-  },
+  max: 60, // 60 API requests per minute
+  message: { error: 'Too many API requests' },
+  handler: (req, res) => {
+    res.status(429).json({ error: 'Too many requests' });
+  }
+});
   handler: (req, res) => {
     security.logSuspiciousActivity(req.ip, 'api_rate_limit');
     res.status(429).json({ error: 'Too many requests' });
@@ -1586,6 +1588,7 @@ if (require.main === module) {
 
 
 module.exports = { app, startWebsite, security };
+
 
 
 
