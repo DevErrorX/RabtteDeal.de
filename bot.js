@@ -365,14 +365,13 @@ app.use((req, res, next) => {
 });
 
 const generalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
+  windowMs: 60 * 1000, 
   max: 100,
   message: { error: 'Too many requests from this IP' },
   standardHeaders: true,
   legacyHeaders: false,
-  skip: (req) => security.isBlocked(req.ip),
-  onLimitReached: (req) => {
-    security.logSuspiciousActivity(req.ip, 'general_rate_limit');
+  skip: (req) => {
+    return req.path === '/' || req.path.startsWith('/static/');
   }
 });
 
@@ -1579,5 +1578,6 @@ if (require.main === module) {
     process.exit(1);
   });
 }
+
 
 module.exports = { app, startWebsite, security };
