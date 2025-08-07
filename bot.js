@@ -54,7 +54,24 @@ class SecurityManager {
     this.cleanupInterval = setInterval(() => this.cleanup(), 300000); // 5 minutes
   }
 
-  checkRateLimit(identifier, limit = 10, window = 60000) {
+  checkRateLimit(identifier, limit = 50, window = 60000) { // زيادة الحد إلى 20 طلب في الدقيقة
+    const now = Date.now();
+    const key = `rate_${identifier}`;
+    
+    if (!this.rateLimits.has(key)) {
+      this.rateLimits.set(key, [now]);
+      return true;
+    }
+    
+    const requests = this.rateLimits.get(key);
+    const recentRequests = requests.filter(time => now - time < window);
+    
+    if (recentRequests.length >= limit) {
+      return false;
+    }
+    
+    recentRequests.push(now);
+    this.rateLimits.set(key, recentRequests);
     return true;
   }
 
@@ -1569,6 +1586,7 @@ if (require.main === module) {
 
 
 module.exports = { app, startWebsite, security };
+
 
 
 
