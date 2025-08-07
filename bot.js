@@ -351,20 +351,20 @@ app.use((req, res, next) => {
   next();
 });
 
+// استبدال الإعدادات الحالية بهذه الإعدادات
 const generalLimiter = rateLimit({
-  windowMs: 60 * 1000, 
-  max: 100,
+  windowMs: 60 * 1000, // نافذة زمنية: 1 دقيقة
+  max: 200, // 200 طلب في الدقيقة (زيادة من 100)
   message: { error: 'Too many requests from this IP' },
-  standardHeaders: true,
-  legacyHeaders: false,
   skip: (req) => {
+    // تخطي بعض المسارات المهمة
     return req.path === '/' || req.path.startsWith('/static/');
   }
 });
 
 const redirectLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 100,
+  max: 150, // 150 طلب في الدقيقة (زيادة من 100)
   message: generateErrorPage("Rate Limit Exceeded", "Too many redirect requests. Please wait before trying again."),
   skip: (req) => security.isBlocked(req.ip),
   onLimitReached: (req) => {
@@ -372,9 +372,10 @@ const redirectLimiter = rateLimit({
     console.warn(`🚫 Redirect rate limit exceeded for IP: ${req.ip}`);
   }
 });
+
 const apiLimiter = rateLimit({
-  windowMs: 60 * 1000, // 1 minute
-  max: 100, // limit each IP to 100 requests per windowMs
+  windowMs: 60 * 1000,
+  max: 150, // 150 طلب في الدقيقة (زيادة من 100)
   message: { error: 'Too many requests' },
   keyGenerator: (req) => {
     return req.headers['x-forwarded-for'] || req.ip;
@@ -1568,5 +1569,6 @@ if (require.main === module) {
 
 
 module.exports = { app, startWebsite, security };
+
 
 
