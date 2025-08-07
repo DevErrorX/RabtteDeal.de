@@ -368,38 +368,6 @@ app.use((req, res, next) => {
   next();
 });
 
-// Updated rate limit configurations
-// Replace your current generalLimiter with this:
-const generalLimiter = rateLimit({
-  windowMs: 60 * 1000, // 1 minute window
-  max: 120, // Increased from 100 to 120 requests per minute
-  message: generateErrorPage(
-    "Rate Limited", 
-    "Please wait a moment before continuing to browse"
-  ),
-  skip: (req) => {
-    // Skip rate limiting for these common paths
-    return [
-      '/',
-      '/favicon.ico',
-      '/deal/',
-      '/static/',
-      '/api/deals'
-    ].some(path => req.path.startsWith(path));
-  },
-  handler: (req, res) => {
-    security.logSuspiciousActivity(req.ip, 'general_rate_limit');
-    res.status(429).send(generateErrorPage(
-      "Slow Down", 
-      "You're making requests too quickly. Please wait a moment and try again."
-    ));
-  },
-  onLimitReached: (req) => {
-    console.log(`Rate limit reached for ${req.ip} on ${req.path}`);
-    // Don't immediately block, just log
-  }
-});
-
 const redirectLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 50, // 50 redirects per minute
@@ -502,7 +470,6 @@ function generateErrorPage(title, description) {
   `;
 }
 
-app.use(generalLimiter);
 app.set('trust proxy', 1);
 
 app.use('/redirect', (req, res, next) => {
@@ -1603,10 +1570,3 @@ if (require.main === module) {
 
 
 module.exports = { app, startWebsite, security };
-
-
-
-
-
-
-
