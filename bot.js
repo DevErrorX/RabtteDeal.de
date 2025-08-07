@@ -55,19 +55,6 @@ class SecurityManager {
   }
 
   checkRateLimit(identifier, limit = 10, window = 60000) {
-    const now = Date.now();
-    const requests = this.rateLimits.get(identifier) || [];
-    
-    const validRequests = requests.filter(time => now - time < window);
-    
-    if (validRequests.length >= limit) {
-      this.blockIdentifier(identifier, window * 2);
-      this.logSuspiciousActivity(identifier, 'rate_limit_exceeded');
-      return false;
-    }
-    
-    validRequests.push(now);
-    this.rateLimits.set(identifier, validRequests);
     return true;
   }
 
@@ -1581,3 +1568,4 @@ if (require.main === module) {
 
 
 module.exports = { app, startWebsite, security };
+
