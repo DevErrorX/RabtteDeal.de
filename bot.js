@@ -369,15 +369,34 @@ app.use((req, res, next) => {
 });
 
 // Updated rate limit configurations
+// Replace your current generalLimiter with this:
 const generalLimiter = rateLimit({
-  windowMs: 60 * 1000, // 1 minute
-  max: 100, // 100 requests per minute (up from 50)
-  message: { error: 'Too many requests from this IP' },
+  windowMs: 60 * 1000, // 1 minute window
+  max: 120, // Increased from 100 to 120 requests per minute
+  message: generateErrorPage(
+    "Rate Limited", 
+    "Please wait a moment before continuing to browse"
+  ),
   skip: (req) => {
-    // Skip rate limiting for static assets and homepage
-    return req.path === '/' || 
-           req.path.startsWith('/static/') ||
-           req.path.startsWith('/deal/')
+    // Skip rate limiting for these common paths
+    return [
+      '/',
+      '/favicon.ico',
+      '/deal/',
+      '/static/',
+      '/api/deals'
+    ].some(path => req.path.startsWith(path));
+  },
+  handler: (req, res) => {
+    security.logSuspiciousActivity(req.ip, 'general_rate_limit');
+    res.status(429).send(generateErrorPage(
+      "Slow Down", 
+      "You're making requests too quickly. Please wait a moment and try again."
+    ));
+  },
+  onLimitReached: (req) => {
+    console.log(`Rate limit reached for ${req.ip} on ${req.path}`);
+    // Don't immediately block, just log
   }
 });
 
@@ -1588,6 +1607,7 @@ if (require.main === module) {
 
 
 module.exports = { app, startWebsite, security };
+
 
 
 
