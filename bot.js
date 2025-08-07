@@ -364,7 +364,7 @@ const generalLimiter = rateLimit({
 
 const redirectLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 5,
+  max: 100,
   message: generateErrorPage("Rate Limit Exceeded", "Too many redirect requests. Please wait before trying again."),
   skip: (req) => security.isBlocked(req.ip),
   onLimitReached: (req) => {
@@ -1568,4 +1568,5 @@ if (require.main === module) {
 
 
 module.exports = { app, startWebsite, security };
+
 
