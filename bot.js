@@ -415,10 +415,6 @@ const apiLimiter = rateLimit({
   max: 60, // 60 API requests per minute
   message: { error: 'Too many API requests' },
   handler: (req, res) => {
-    res.status(429).json({ error: 'Too many requests' });
-  }
-});
-  handler: (req, res) => {
     security.logSuspiciousActivity(req.ip, 'api_rate_limit');
     res.status(429).json({ error: 'Too many requests' });
   }
@@ -1607,6 +1603,7 @@ if (require.main === module) {
 
 
 module.exports = { app, startWebsite, security };
+
 
 
 
