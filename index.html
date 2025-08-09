@@ -921,6 +921,40 @@
                 margin-bottom: 0.5rem;
             }
         }
+      
+      
+      .filter-tabs {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.filter-tabs::-webkit-scrollbar {
+    width: 4px;
+}
+
+.filter-tabs::-webkit-scrollbar-track {
+    background: var(--bg-secondary);
+}
+
+.filter-tabs::-webkit-scrollbar-thumb {
+    background: var(--primary);
+    border-radius: 2px;
+}
+
+@media (max-width: 768px) {
+    .filter-tabs {
+        max-height: 150px;
+        justify-content: flex-start;
+    }
+    
+    .filter-tab {
+        font-size: 0.8rem;
+        padding: 0.4rem 0.8rem;
+    }
+}
     </style>
 </head>
 
@@ -1000,12 +1034,27 @@
 
             <div class="controls-bar">
                 <div class="filter-tabs">
-                    <button class="filter-tab active" data-category="all">Alle</button>
-                    <button class="filter-tab" data-category="elektronik">Elektronik</button>
-                    <button class="filter-tab" data-category="küche">Küche</button>
-                    <button class="filter-tab" data-category="kinder">Kinder</button>
-                    <button class="filter-tab" data-category="sport">Sport</button>
-                </div>
+    <button class="filter-tab active" data-category="all">Alle</button>
+    <button class="filter-tab" data-category="elektronik">Elektronik & Foto</button>
+    <button class="filter-tab" data-category="bücher">Bücher</button>
+    <button class="filter-tab" data-category="games">Games</button>
+    <button class="filter-tab" data-category="spielzeug">Spielzeug & Spiele</button>
+    <button class="filter-tab" data-category="küche">Küche & Haushalt</button>
+    <button class="filter-tab" data-category="lebensmittel">Lebensmittel</button>
+    <button class="filter-tab" data-category="drogerie">Drogerie & Körperpflege</button>
+    <button class="filter-tab" data-category="fashion">Fashion</button>
+    <button class="filter-tab" data-category="sport">Sport & Freizeit</button>
+    <button class="filter-tab" data-category="auto">Auto & Motorrad</button>
+    <button class="filter-tab" data-category="haustier">Haustierbedarf</button>
+    <button class="filter-tab" data-category="büro">Bürobedarf</button>
+    <button class="filter-tab" data-category="multimedia">Multimedia</button>
+    <button class="filter-tab" data-category="computer">Computer & Zubehör</button>
+    <button class="filter-tab" data-category="gesundheit">Gesundheit</button>
+    <button class="filter-tab" data-category="werkzeuge">Werkzeuge & Heimwerken</button>
+    <button class="filter-tab" data-category="garten">Garten & Outdoor</button>
+    <button class="filter-tab" data-category="musik">Musikinstrumente</button>
+    <button class="filter-tab" data-category="software">Software & Apps</button>
+</div>
 
                 <div class="view-controls">
                     <button class="view-toggle active" data-view="grid">⊞</button>
@@ -1508,137 +1557,4 @@
             // View toggles
             document.querySelectorAll('.view-toggle').forEach(toggle => {
                 toggle.addEventListener('click', function () {
-                    document.querySelectorAll('.view-toggle').forEach(t => t.classList.remove('active'));
-                    this.classList.add('active');
-
-                    currentView = this.dataset.view;
-                    const grid = document.getElementById('dealsGrid');
-                    if (currentView === 'list') {
-                        grid.classList.add('list-view');
-                    } else {
-                        grid.classList.remove('list-view');
-                    }
-                    renderDeals();
-                });
-            });
-
-            // Sort
-            document.getElementById('sortSelect').addEventListener('change', function () {
-                const sortBy = this.value;
-
-                switch (sortBy) {
-                    case 'newest':
-                        filteredDeals.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-                        break;
-                    case 'discount':
-                        filteredDeals.sort((a, b) => {
-                            const discountA = ((a.oldPrice - a.price) / a.oldPrice) * 100;
-                            const discountB = ((b.oldPrice - b.price) / b.oldPrice) * 100;
-                            return discountB - discountA;
-                        });
-                        break;
-                    case 'price-low':
-                        filteredDeals.sort((a, b) => a.price - b.price);
-                        break;
-                    case 'price-high':
-                        filteredDeals.sort((a, b) => b.price - a.price);
-                        break;
-                }
-                renderDeals();
-            });
-
-            document.getElementById('searchInput').addEventListener('input', function () {
-                const query = this.value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-                if (query === '') {
-                    filteredDeals = [...deals];
-                } else {
-                    filteredDeals = deals.filter(deal =>
-                        deal.title.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(query) ||
-                        deal.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(query) ||
-                        deal.category.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(query) ||
-                        (deal.coupon && deal.coupon.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(query))
-                    );
-                }
-                renderDeals();
-            });
-            // Navigation buttons
-            document.getElementById('categoriesBtn').addEventListener('click', showCategories);
-            document.getElementById('contactBtn').addEventListener('click', scrollToContact);
-            document.getElementById('dealsBtn').addEventListener('click', scrollToDeals);
-            document.getElementById('wishlistBtn').addEventListener('click', showWishlist);
-            document.getElementById('wishlistBtn2').addEventListener('click', showWishlist);
-            document.getElementById('themeToggle').addEventListener('click', toggleTheme);
-        }
-
-        // Navigation functions
-        function showCategories() {
-            document.querySelector('.filter-tabs').scrollIntoView({ behavior: 'smooth' });
-            showNotification('Kategorien werden angezeigt');
-        }
-
-        function scrollToContact() {
-            document.getElementById('contact').scrollIntoView({ behavior: 'smooth' });
-        }
-
-        function scrollToDeals() {
-            document.getElementById('deals').scrollIntoView({ behavior: 'smooth' });
-        }
-
-        function updateStats() {
-            document.getElementById('totalDeals').textContent = deals.length;
-        }
-
-        function showNotification(message, type = 'success') {
-            const notification = document.getElementById('notification');
-            const text = document.getElementById('notificationText');
-
-            text.textContent = message;
-            notification.className = `notification ${type}`;
-            notification.classList.add('show');
-
-            setTimeout(() => {
-                notification.classList.remove('show');
-            }, 3000);
-        }
-
-        let requestCount = 0;
-        const maxRequests = 100;
-        const timeWindow = 60000; 
-        function checkRateLimit() {
-            requestCount++;
-            if (requestCount > maxRequests) {
-                showSecurityOverlay();
-                return false;
-            }
-
-            setTimeout(() => {
-                requestCount = Math.max(0, requestCount - 1);
-            }, timeWindow);
-
-            return true;
-        }
-
-        const originalFetch = window.fetch;
-        window.fetch = function (...args) {
-            if (!checkRateLimit()) {
-                return Promise.reject(new Error('Rate limit exceeded'));
-            }
-            return originalFetch.apply(this, args);
-        };
-
-        Object.defineProperty(window, 'console', {
-            value: {},
-            writable: false,
-            configurable: false
-        });
-
-        setInterval(() => {
-            if (window.console && window.console.clear) {
-                window.console.clear();
-            }
-        }, 1000);
-    </script>
-</body>
-
-
-</html>
+                    document.querySelectorAll('.vie
