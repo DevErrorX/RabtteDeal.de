@@ -783,19 +783,19 @@ async function handleAddDealSession(chatId, userId, text, session) {
   const { step, data } = session;
 
   switch (step) {
-    case "name":
+    case "name":{
       const sanitizedName = InputValidator.sanitizeText(text, 100);
       if (sanitizedName.length < 5 || sanitizedName.length > 100) {
         bot.sendMessage(chatId, "❌ Deal name must be 5-100 characters long:");
-        return;
-      }
+        return;}
+
       data.name = sanitizedName;
       session.step = "description";
       userSessions.set(userId, session);
       bot.sendMessage(chatId, "✅ Name saved!\n\nNow enter the description (10-500 characters):");
-      break;
+      break;}
 
-    case "description":
+    case "description":{
       const sanitizedDesc = InputValidator.sanitizeText(text, 500);
       if (sanitizedDesc.length < 10 || sanitizedDesc.length > 500) {
         bot.sendMessage(chatId, "❌ Description must be 10-500 characters long:");
@@ -805,9 +805,9 @@ async function handleAddDealSession(chatId, userId, text, session) {
       session.step = "original_price";
       userSessions.set(userId, session);
       bot.sendMessage(chatId, "✅ Description saved!\n\nEnter the original price (e.g., 99.99):");
-      break;
+      break;}
 
-    case "original_price":
+    case "original_price":{
       if (!InputValidator.validatePrice(text)) {
         bot.sendMessage(chatId, "❌ Please enter a valid price (0.01 - 99999.99):");
         return;
@@ -816,9 +816,9 @@ async function handleAddDealSession(chatId, userId, text, session) {
       session.step = "deal_price";
       userSessions.set(userId, session);
       bot.sendMessage(chatId, "✅ Original price saved!\n\nEnter the deal price:");
-      break;
+      break;}
 
-    case "deal_price":
+    case "deal_price":{
       if (!InputValidator.validatePrice(text)) {
         bot.sendMessage(chatId, "❌ Please enter a valid price (0.01 - 99999.99):");
         return;
@@ -832,9 +832,9 @@ async function handleAddDealSession(chatId, userId, text, session) {
       session.step = "coupon";
       userSessions.set(userId, session);
       bot.sendMessage(chatId, "✅ Deal price saved!\n\nDo you have a coupon code for this deal? Enter the coupon code or type 'no' if there's no coupon:");
-      break;
+      break;}
 
-    case "coupon":
+    case "coupon":{
       const couponText = InputValidator.sanitizeText(text, 50).trim();
       if (couponText.toLowerCase() === 'no' || couponText.toLowerCase() === 'nein') {
         data.coupon = null;
@@ -844,9 +844,9 @@ async function handleAddDealSession(chatId, userId, text, session) {
       session.step = "category";
       userSessions.set(userId, session);
       bot.sendMessage(chatId, `✅ Coupon ${data.coupon ? 'saved' : 'skipped'}!\n\nEnter the category (elektronik, küche, kinder, sport):`);
-      break;
+      break;}
 
-    case "category":
+    case "category":{
     const category = InputValidator.sanitizeText(text, 50).toLowerCase();
     const validCategories = [
         'elektronik', 'bücher', 'games', 'spielzeug', 'küche', 
@@ -868,9 +868,9 @@ async function handleAddDealSession(chatId, userId, text, session) {
     session.step = "amazon_url";
     userSessions.set(userId, session);
     bot.sendMessage(chatId, "✅ Category saved!\n\nEnter the Amazon URL (must be HTTPS):");
-    break;
+    break;}
 
-    case "amazon_url":
+    case "amazon_url":{
       if (!InputValidator.validateURL(text)) {
         bot.sendMessage(chatId, "❌ Please enter a valid HTTPS Amazon URL from supported domains:");
         return;
@@ -879,9 +879,9 @@ async function handleAddDealSession(chatId, userId, text, session) {
       session.step = "photo";
       userSessions.set(userId, session);
       bot.sendMessage(chatId, "✅ Amazon URL saved!\n\nSend a photo or enter an HTTPS image URL:");
-      break;
+      break;}
 
-    case "photo":
+    case "photo":{
       if (session.completing) {
         return;
       }
@@ -897,7 +897,7 @@ async function handleAddDealSession(chatId, userId, text, session) {
         userSessions.set(userId, session);
         bot.sendMessage(chatId, "❌ Please send a photo or enter a valid HTTPS image URL:");
       }
-      break;
+      break;}
   }
 }
 
@@ -1109,7 +1109,7 @@ async function handleChangeDealSession(chatId, userId, text, session) {
    let errorMessage = "";
 
    switch (field) {
-     case "name":
+     case "name":{
        updateValue = InputValidator.sanitizeText(text, 100);
        if (updateValue.length < 5 || updateValue.length > 100) {
          isValid = false;
@@ -1118,9 +1118,9 @@ async function handleChangeDealSession(chatId, userId, text, session) {
          deal.title = updateValue;
          deal.slug = generateSlug(updateValue);
        }
-       break;
+       break;}
        
-     case "description":
+     case "description":{
        updateValue = InputValidator.sanitizeText(text, 500);
        if (updateValue.length < 10 || updateValue.length > 500) {
          isValid = false;
@@ -1128,9 +1128,9 @@ async function handleChangeDealSession(chatId, userId, text, session) {
        } else {
          deal.description = updateValue;
        }
-       break;
+       break;}
        
-     case "price":
+     case "price":{
        if (!InputValidator.validatePrice(text)) {
          isValid = false;
          errorMessage = "Please enter a valid price (0.01 - 99999.99)";
@@ -1143,9 +1143,9 @@ async function handleChangeDealSession(chatId, userId, text, session) {
            deal.price = newPrice;
          }
        }
-       break;
+       break;}
        
-     case "original price":
+     case "original price":{
        if (!InputValidator.validatePrice(text)) {
          isValid = false;
          errorMessage = "Please enter a valid price (0.01 - 99999.99)";
@@ -1158,9 +1158,9 @@ async function handleChangeDealSession(chatId, userId, text, session) {
            deal.oldPrice = newOriginalPrice;
          }
        }
-       break;
+       break;}
        
-     case "category":
+     case "category":{
     const category = InputValidator.sanitizeText(text, 50).toLowerCase();
     const validCategories = [
         'elektronik', 'bücher', 'games', 'spielzeug', 'küche', 
@@ -1175,16 +1175,16 @@ async function handleChangeDealSession(chatId, userId, text, session) {
     } else {
         deal.category = category;
     }
-    break;
+    break;}
        
-     case "amazon url":
+     case "amazon url":{
        if (!InputValidator.validateURL(text)) {
          isValid = false;
          errorMessage = "Please enter a valid HTTPS Amazon URL";
        } else {
          deal.amazonUrl = text;
        }
-       break;
+       break;}
        
      default:
        isValid = false;
@@ -3121,5 +3121,6 @@ if (require.main === module) {
 
 
 module.exports = { app, startWebsite, security };
+
 
 
