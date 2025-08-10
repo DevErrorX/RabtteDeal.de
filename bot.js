@@ -289,7 +289,7 @@ class InputValidator {
     }
   
 const validCategories = [
-        'elektronik', 'bücher', 'games', 'spielzeug', 'küche', 
+        'elektronik', 'bücher', 'games', 'spielzeug', 'küche', 'Haushalt',
         'lebensmittel', 'drogerie', 'fashion', 'sport', 'auto', 
         'haustier', 'büro', 'multimedia', 'computer', 'gesundheit', 
         'werkzeuge', 'garten', 'musik', 'software'
@@ -849,7 +849,7 @@ async function handleAddDealSession(chatId, userId, text, session) {
     case "category":{
     const category = InputValidator.sanitizeText(text, 50).toLowerCase();
     const validCategories = [
-        'elektronik', 'bücher', 'games', 'spielzeug', 'küche', 
+        'elektronik', 'bücher', 'games', 'spielzeug', 'küche','Haushalt',
         'lebensmittel', 'drogerie', 'fashion', 'sport', 'auto', 
         'haustier', 'büro', 'multimedia', 'computer', 'gesundheit', 
         'werkzeuge', 'garten', 'musik', 'software'
@@ -858,7 +858,7 @@ async function handleAddDealSession(chatId, userId, text, session) {
     if (!validCategories.includes(category)) {
         bot.sendMessage(chatId, 
             "❌ Please enter a valid category:\n" +
-            "elektronik, bücher, games, spielzeug, küche, lebensmittel, " +
+            "elektronik, bücher, games, spielzeug, küche, lebensmittel,Haushalt " +
             "drogerie, fashion, sport, auto, haustier, büro, multimedia, " +
             "computer, gesundheit, werkzeuge, garten, musik, software"
         );
@@ -1163,7 +1163,7 @@ async function handleChangeDealSession(chatId, userId, text, session) {
      case "category":{
     const category = InputValidator.sanitizeText(text, 50).toLowerCase();
     const validCategories = [
-        'elektronik', 'bücher', 'games', 'spielzeug', 'küche', 
+        'elektronik', 'bücher', 'games', 'spielzeug', 'küche', 'Haushalt',
         'lebensmittel', 'drogerie', 'fashion', 'sport', 'auto', 
         'haustier', 'büro', 'multimedia', 'computer', 'gesundheit', 
         'werkzeuge', 'garten', 'musik', 'software'
