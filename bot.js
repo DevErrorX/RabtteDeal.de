@@ -845,18 +845,18 @@ bot.sendMessage(chatId, "❌ يجب أن يكون سعر العرض أقل من 
       }
       session.step = "category";
       userSessions.set(userId, session);
-validCategories = [
-    'elektronik', 'bücher', 'games', 'spielzeug', 'küche', 
-    'lebensmittel', 'drogerie', 'fashion', 'sport', 'auto', 
-    'haustier', 'büro', 'multimedia', 'computer', 'gesundheit', 
-    'werkzeuge', 'garten', 'musik', 'software'
-]
+      const validCategories = [
+      'elektronik', 'bücher', 'games', 'spielzeug', 'küche', 
+      'lebensmittel', 'drogerie', 'fashion', 'sport', 'auto', 
+      'haustier', 'büro', 'multimedia', 'computer', 'gesundheit', 
+      'werkzeuge', 'garten', 'musik', 'software'
+  ]
 
-bot.sendMessage(
-  chatId,
-  `✅ تم ${data.coupon ? 'حفظ' : 'تخطي'} القسيمة!\n\n` +
-  `أدخل التصنيف (واحد من هذه التصنيفات: ${validCategories.join(', ')}):`
-);
+      bot.sendMessage(
+        chatId,
+        `✅ تم ${data.coupon ? 'حفظ' : 'تخطي'} القسيمة!\n\n` +
+        `أدخل التصنيف (واحد من هذه التصنيفات: ${validCategories.join(', ')}):`
+      );
 
       break;}
 
