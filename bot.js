@@ -954,7 +954,7 @@ async function completeDealAdd(chatId, userId, data) {
 
     userSessions.delete(userId);
 
-    const dealUrl = `${WEBSITE_URL}/deal/${slug}-${dealId}`;
+    const dealUrl = `${WEBSITE_URL}/deal/${slug}`;
 
 bot.sendMessage(
   chatId,
@@ -1222,7 +1222,7 @@ if (!deal) {
      await saveDeals();
      userSessions.delete(userId);
 
-     const dealUrl = `${WEBSITE_URL}/deal/${deal.slug}-${deal.id}`;
+     const dealUrl = `${WEBSITE_URL}/deal/${deal.slug}`;
 
      bot.sendMessage(
        chatId,
