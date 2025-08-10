@@ -559,13 +559,16 @@ function generateDealId() {
 }
 
 function generateSlug(title) {
-  return InputValidator.sanitizeText(title)
+  const sanitized = InputValidator.sanitizeText(title)
     .toLowerCase()
     .trim()
     .replace(/[^\w\s-]/g, '')
-    .replace(/[\s_-]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .substring(0, 50);
+    .replace(/[\s_-]+/g, ' ');
+  
+  const words = sanitized.split(' ').filter(word => word.length > 0);
+  const firstTwoWords = words.slice(0, 2).join('-');
+  
+  return firstTwoWords.substring(0, 30);
 }
 
 function isAdmin(userId) {
@@ -1406,7 +1409,7 @@ app.get('/redirect/:dealId', redirectLimiter, async (req, res) => {
     
     if (!dealId || !/^[0-9a-f]{8,}$/i.test(dealId)) {
       return res.status(400).send(generateErrorPage(
-        "Invalid Deal ID", 
+        "Invalid Deal ID",
         "The deal ID format is invalid"
       ));
     }
@@ -1415,21 +1418,21 @@ app.get('/redirect/:dealId', redirectLimiter, async (req, res) => {
     
     if (!deal) {
       return res.status(404).send(generateErrorPage(
-        "Deal Not Found", 
+        "Deal Not Found",
         "The requested deal could not be found"
       ));
     }
 
     if (deal.timer <= Date.now()) {
       return res.status(410).send(generateErrorPage(
-        "Deal Expired", 
+        "Deal Expired",
         "This deal has expired and is no longer available"
       ));
     }
 
     if (!InputValidator.validateURL(deal.amazonUrl)) {
       return res.status(400).send(generateErrorPage(
-        "Invalid Deal URL", 
+        "Invalid Deal URL",
         "The deal URL is invalid or unsafe"
       ));
     }
@@ -1443,26 +1446,25 @@ app.get('/redirect/:dealId', redirectLimiter, async (req, res) => {
   } catch (error) {
     console.error("❌ Error handling redirect:", error);
     res.status(500).send(generateErrorPage(
-      "Server Error", 
+      "Server Error",
       "An error occurred while processing your request"
     ));
   }
 });
 
-// Individual deal page route
-app.get('/deal/:slugWithId', async (req, res) => {
+app.get('/deal/:slug', async (req, res) => {
   try {
-    const slugWithId = InputValidator.sanitizeText(req.params.slugWithId, 100);
-    const dealId = slugWithId.split('-').pop();
+    const slug = InputValidator.sanitizeText(req.params.slug, 100);
     
-    if (!dealId || !/^[0-9a-f]{8,}$/i.test(dealId)) {
+    if (!slug || slug.length < 3) {
       return res.status(400).send(generateErrorPage(
-        "Invalid Deal ID", 
-        "The deal ID format is invalid"
+        "Invalid Deal URL", 
+        "The deal URL format is invalid"
       ));
     }
 
-    const deal = deals.find(d => d.id === dealId);
+    // Find deal by slug only
+    const deal = deals.find(d => d.slug === slug);
     
     if (!deal) {
       return res.status(404).send(generateErrorPage(
@@ -1482,7 +1484,7 @@ app.get('/deal/:slugWithId', async (req, res) => {
     const dealHtmlPath = path.join(__dirname, 'deal.html');
     res.sendFile(dealHtmlPath);
     
-    console.log(`📄 Serving deal page for ${dealId} from IP ${req.ip}`);
+    console.log(`📄 Serving deal page for "${slug}" from IP ${req.ip}`);
   } catch (error) {
     console.error("❌ Error serving deal page:", error);
     res.status(500).send(generateErrorPage(
@@ -1492,16 +1494,15 @@ app.get('/deal/:slugWithId', async (req, res) => {
   }
 });
 
-// API route to get individual deal data
-app.get('/api/deals/:dealId', apiLimiter, async (req, res) => {
+app.get('/api/deal/:slug', apiLimiter, async (req, res) => {
   try {
-    const dealId = InputValidator.sanitizeText(req.params.dealId, 50);
+    const slug = InputValidator.sanitizeText(req.params.slug, 100);
     
-    if (!dealId || !/^[0-9a-f]{8,}$/i.test(dealId)) {
-      return res.status(400).json({ error: 'Invalid deal ID format' });
+    if (!slug || slug.length < 3) {
+      return res.status(400).json({ error: 'Invalid deal slug format' });
     }
 
-    const deal = deals.find(d => d.id === dealId);
+    const deal = deals.find(d => d.slug === slug);
     
     if (!deal) {
       return res.status(404).json({ error: 'Deal not found' });
@@ -1511,7 +1512,7 @@ app.get('/api/deals/:dealId', apiLimiter, async (req, res) => {
       return res.status(410).json({ error: 'Deal expired' });
     }
 
-    // Return public deal data including coupon
+    // Return public deal data
     const publicDeal = {
       id: deal.id,
       slug: deal.slug,
@@ -1522,7 +1523,7 @@ app.get('/api/deals/:dealId', apiLimiter, async (req, res) => {
       discount: deal.discount,
       category: deal.category,
       imageUrl: deal.imageUrl,
-      coupon: deal.coupon, // Include coupon
+      coupon: deal.coupon,
       rating: deal.rating,
       reviews: deal.reviews,
       badge: deal.badge,
