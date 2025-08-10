@@ -833,7 +833,7 @@ bot.sendMessage(chatId, "❌ يجب أن يكون سعر العرض أقل من 
       data.dealPrice = dealPrice;
       session.step = "coupon";
       userSessions.set(userId, session);
-      bot.sendMessage(chatId, "✅ Deal price saved!\n\nDo you have a coupon code for this deal? Enter the coupon code or type 'no' if there's no coupon:");
+bot.sendMessage(chatId, "✅ تم حفظ سعر العرض!\n\nهل لديك رمز قسيمة لهذا العرض؟ أدخل رمز القسيمة أو اكتب 'no' إذا لا توجد قسيمة:");
       break;}
 
     case "coupon":{
