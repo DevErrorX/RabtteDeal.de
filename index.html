@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Rabatte&Deal&DE - Premium Amazon Deals</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
@@ -955,6 +955,149 @@
         padding: 0.4rem 0.8rem;
     }
 }
+
+/* Add to your existing media queries */
+@media (max-width: 1024px) {
+    /* Tablet styles */
+    .nav-container {
+        padding: 0 1rem;
+    }
+    
+    .hero-cta {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .hero-stats {
+        flex-wrap: wrap;
+    }
+    
+    .stat {
+        flex: 1 0 45%;
+        margin-bottom: 1rem;
+    }
+}
+
+@media (max-width: 480px) {
+    /* Mobile styles */
+    .nav-container {
+        height: 60px;
+        padding: 0 0.75rem;
+    }
+    
+    .logo {
+        font-size: 1.2rem;
+    }
+    
+    .search-input {
+        width: 120px !important;
+        padding: 0.4rem 1.8rem 0.4rem 0.8rem;
+    }
+    
+    .hero {
+        padding: 80px 1rem 40px;
+    }
+    
+    .hero h1 {
+        font-size: 2rem;
+    }
+    
+    .hero p {
+        font-size: 1rem;
+    }
+    
+    .section-title {
+        font-size: 2rem;
+    }
+    
+    .filter-tabs {
+        max-height: 120px;
+    }
+    
+    .deal-card.list-view .deal-image-container {
+        height: 150px;
+    }
+    
+    .modal-content {
+        width: 95%;
+        padding: 1.5rem;
+        margin: 10% auto;
+    }
+}
+
+/* Add touch-friendly elements */
+@media (hover: none) {
+    button, a, .filter-tab, .view-toggle {
+        min-height: 44px;
+        min-width: 44px;
+    }
+    
+    .deal-card {
+        transform: none !important;
+    }
+}
+
+/* Prevent zoom on input focus on mobile */
+@media screen and (max-width: 768px) {
+    input, select, textarea {
+        font-size: 16px;
+    }
+}
+
+@media (max-width: 768px) {
+    .nav-actions {
+        gap: 0.5rem;
+    }
+    
+    .wishlist-btn, .theme-toggle {
+        padding: 0.5rem;
+    }
+    
+    .theme-toggle span {
+        display: none;
+    }
+}
+
+@media (max-width: 640px) {
+    .deals-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .deal-image-container {
+        height: 180px;
+    }
+    
+    .deal-content {
+        padding: 1rem;
+    }
+    
+    .deal-actions {
+        flex-direction: column;
+    }
+    
+    .btn-primary, .btn-copy, .btn-favorite {
+        width: 100%;
+    }
+}
+
+@media (max-width: 768px) {
+    .contact-footer {
+        padding: 2rem 1rem;
+    }
+    
+    .contact-section {
+        margin-bottom: 1.5rem;
+    }
+    
+    .social-links {
+        justify-content: center;
+    }
+}
+@media (max-width: 768px) {
+    .hero::before {
+        background-size: 20px 20px;
+    }
+}
     </style>
 </head>
 
@@ -1204,7 +1347,7 @@
         let deals = [];
         let filteredDeals = [];
         let wishlist = JSON.parse(localStorage.getItem('wishlist')) || [];
-        let currentTheme = localStorage.getItem('theme') || 'dark';
+        let currentTheme = localStorage.getItem('theme') || 'light';
         let currentView = 'grid';
         setInterval(() => {
             localStorage.setItem('wishlist', JSON.stringify(wishlist));
@@ -1555,139 +1698,138 @@
             });
 
             // View toggles
-            document.querySelectorAll('.view-toggle').forEach(toggle => {
-                toggle.addEventListener('click', function () {
-                    document.querySelectorAll('.view-toggle').forEach(t => t.classList.remove('active'));
-                    this.classList.add('active');
+                    document.querySelectorAll('.view-toggle').forEach(toggle => {
+                        toggle.addEventListener('click', function () {
+                            document.querySelectorAll('.view-toggle').forEach(t => t.classList.remove('active'));
+                            this.classList.add('active');
 
-                    currentView = this.dataset.view;
-                    const grid = document.getElementById('dealsGrid');
-                    if (currentView === 'list') {
-                        grid.classList.add('list-view');
-                    } else {
-                        grid.classList.remove('list-view');
-                    }
-                    renderDeals();
-                });
-            });
-
-            // Sort
-            document.getElementById('sortSelect').addEventListener('change', function () {
-                const sortBy = this.value;
-
-                switch (sortBy) {
-                    case 'newest':
-                        filteredDeals.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-                        break;
-                    case 'discount':
-                        filteredDeals.sort((a, b) => {
-                            const discountA = ((a.oldPrice - a.price) / a.oldPrice) * 100;
-                            const discountB = ((b.oldPrice - b.price) / b.oldPrice) * 100;
-                            return discountB - discountA;
+                            currentView = this.dataset.view;
+                            const grid = document.getElementById('dealsGrid');
+                            if (currentView === 'list') {
+                                grid.classList.add('list-view');
+                            } else {
+                                grid.classList.remove('list-view');
+                            }
+                            renderDeals();
                         });
-                        break;
-                    case 'price-low':
-                        filteredDeals.sort((a, b) => a.price - b.price);
-                        break;
-                    case 'price-high':
-                        filteredDeals.sort((a, b) => b.price - a.price);
-                        break;
+                    });
+
+                    // Sort
+                    document.getElementById('sortSelect').addEventListener('change', function () {
+                        const sortBy = this.value;
+
+                        switch (sortBy) {
+                            case 'newest':
+                                filteredDeals.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+                                break;
+                            case 'discount':
+                                filteredDeals.sort((a, b) => {
+                                    const discountA = ((a.oldPrice - a.price) / a.oldPrice) * 100;
+                                    const discountB = ((b.oldPrice - b.price) / b.oldPrice) * 100;
+                                    return discountB - discountA;
+                                });
+                                break;
+                            case 'price-low':
+                                filteredDeals.sort((a, b) => a.price - b.price);
+                                break;
+                            case 'price-high':
+                                filteredDeals.sort((a, b) => b.price - a.price);
+                                break;
+                        }
+                        renderDeals();
+                    });
+
+                    document.getElementById('searchInput').addEventListener('input', function () {
+                        const query = this.value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                        if (query === '') {
+                            filteredDeals = [...deals];
+                        } else {
+                            filteredDeals = deals.filter(deal =>
+                                deal.title.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(query) ||
+                                deal.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(query) ||
+                                deal.category.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(query) ||
+                                (deal.coupon && deal.coupon.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(query))
+                            );
+                        }
+                        renderDeals();
+                    });
+                    // Navigation buttons
+                    document.getElementById('categoriesBtn').addEventListener('click', showCategories);
+                    document.getElementById('contactBtn').addEventListener('click', scrollToContact);
+                    document.getElementById('dealsBtn').addEventListener('click', scrollToDeals);
+                    document.getElementById('wishlistBtn').addEventListener('click', showWishlist);
+                    document.getElementById('wishlistBtn2').addEventListener('click', showWishlist);
+                    document.getElementById('themeToggle').addEventListener('click', toggleTheme);
                 }
-                renderDeals();
-            });
 
-            document.getElementById('searchInput').addEventListener('input', function () {
-                const query = this.value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-                if (query === '') {
-                    filteredDeals = [...deals];
-                } else {
-                    filteredDeals = deals.filter(deal =>
-                        deal.title.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(query) ||
-                        deal.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(query) ||
-                        deal.category.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(query) ||
-                        (deal.coupon && deal.coupon.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(query))
-                    );
+                // Navigation functions
+                function showCategories() {
+                    document.querySelector('.filter-tabs').scrollIntoView({ behavior: 'smooth' });
+                    showNotification('Kategorien werden angezeigt');
                 }
-                renderDeals();
-            });
-            // Navigation buttons
-            document.getElementById('categoriesBtn').addEventListener('click', showCategories);
-            document.getElementById('contactBtn').addEventListener('click', scrollToContact);
-            document.getElementById('dealsBtn').addEventListener('click', scrollToDeals);
-            document.getElementById('wishlistBtn').addEventListener('click', showWishlist);
-            document.getElementById('wishlistBtn2').addEventListener('click', showWishlist);
-            document.getElementById('themeToggle').addEventListener('click', toggleTheme);
-        }
 
-        // Navigation functions
-        function showCategories() {
-            document.querySelector('.filter-tabs').scrollIntoView({ behavior: 'smooth' });
-            showNotification('Kategorien werden angezeigt');
-        }
+                function scrollToContact() {
+                    document.getElementById('contact').scrollIntoView({ behavior: 'smooth' });
+                }
 
-        function scrollToContact() {
-            document.getElementById('contact').scrollIntoView({ behavior: 'smooth' });
-        }
+                function scrollToDeals() {
+                    document.getElementById('deals').scrollIntoView({ behavior: 'smooth' });
+                }
 
-        function scrollToDeals() {
-            document.getElementById('deals').scrollIntoView({ behavior: 'smooth' });
-        }
+                function updateStats() {
+                    document.getElementById('totalDeals').textContent = deals.length;
+                }
 
-        function updateStats() {
-            document.getElementById('totalDeals').textContent = deals.length;
-        }
+                function showNotification(message, type = 'success') {
+                    const notification = document.getElementById('notification');
+                    const text = document.getElementById('notificationText');
 
-        function showNotification(message, type = 'success') {
-            const notification = document.getElementById('notification');
-            const text = document.getElementById('notificationText');
+                    text.textContent = message;
+                    notification.className = `notification ${type}`;
+                    notification.classList.add('show');
 
-            text.textContent = message;
-            notification.className = `notification ${type}`;
-            notification.classList.add('show');
+                    setTimeout(() => {
+                        notification.classList.remove('show');
+                    }, 3000);
+                }
 
-            setTimeout(() => {
-                notification.classList.remove('show');
-            }, 3000);
-        }
+                let requestCount = 0;
+                const maxRequests = 100;
+                const timeWindow = 60000;
+                function checkRateLimit() {
+                    requestCount++;
+                    if (requestCount > maxRequests) {
+                        showSecurityOverlay();
+                        return false;
+                    }
 
-        let requestCount = 0;
-        const maxRequests = 100;
-        const timeWindow = 60000; 
-        function checkRateLimit() {
-            requestCount++;
-            if (requestCount > maxRequests) {
-                showSecurityOverlay();
-                return false;
-            }
+                    setTimeout(() => {
+                        requestCount = Math.max(0, requestCount - 1);
+                    }, timeWindow);
 
-            setTimeout(() => {
-                requestCount = Math.max(0, requestCount - 1);
-            }, timeWindow);
+                    return true;
+                }
 
-            return true;
-        }
+                const originalFetch = window.fetch;
+                window.fetch = function (...args) {
+                    if (!checkRateLimit()) {
+                        return Promise.reject(new Error('Rate limit exceeded'));
+                    }
+                    return originalFetch.apply(this, args);
+                };
 
-        const originalFetch = window.fetch;
-        window.fetch = function (...args) {
-            if (!checkRateLimit()) {
-                return Promise.reject(new Error('Rate limit exceeded'));
-            }
-            return originalFetch.apply(this, args);
-        };
+                Object.defineProperty(window, 'console', {
+                    value: {},
+                    writable: false,
+                    configurable: false
+                });
 
-        Object.defineProperty(window, 'console', {
-            value: {},
-            writable: false,
-            configurable: false
-        });
-
-        setInterval(() => {
-            if (window.console && window.console.clear) {
-                window.console.clear();
-            }
-        }, 1000);
-    </script>
-</body>
-
-</html>
-
+                setInterval(() => {
+                    if (window.console && window.console.clear) {
+                        window.console.clear();
+                    }
+                }, 1000);
+            </script>
+    </body>
+    
+    </html>
