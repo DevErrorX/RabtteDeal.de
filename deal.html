@@ -437,11 +437,10 @@
         let wishlist = JSON.parse(localStorage.getItem('wishlist')) || [];
 
         // Get deal ID from URL
-        function getDealIdFromUrl() {
-            const pathParts = window.location.pathname.split('/');
-            const dealSlugWithId = pathParts[pathParts.length - 1];
-            return dealSlugWithId.split('-').pop();
-        }
+        function getDealSlugFromUrl() {
+                const pathParts = window.location.pathname.split('/');
+                return pathParts[pathParts.length - 1]; // This is now the full slug
+            }
 
         // Show notification
         function showNotification(message, type = 'success') {
@@ -638,31 +637,31 @@
 
         // Load deal data
         async function loadDeal() {
-            const dealId = getDealIdFromUrl();
+                const dealSlug = getDealSlugFromUrl();
 
-            if (!dealId) {
-                showError();
-                return;
-            }
-
-            try {
-                const response = await fetch(`/api/deals/${dealId}`);
-
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
+                if (!dealSlug) {
+                    showError();
+                    return;
                 }
 
-                const deal = await response.json();
-                currentDeal = deal;
-                renderDeal(deal);
+                try {
+                    const response = await fetch(`/api/deal/${dealSlug}`); // Note: changed from /api/deals/ to /api/deal/
 
-            } catch (error) {
-                console.error('Error loading deal:', error);
-                showError();
-            } finally {
-                hideLoading();
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    const deal = await response.json();
+                    currentDeal = deal;
+                    renderDeal(deal);
+
+                } catch (error) {
+                    console.error('Error loading deal:', error);
+                    showError();
+                } finally {
+                    hideLoading();
+                }
             }
-        }
 
         // Show error
         function showError() {
