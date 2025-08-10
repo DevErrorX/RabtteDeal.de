@@ -562,14 +562,15 @@ function generateSlug(title) {
   const sanitized = InputValidator.sanitizeText(title)
     .toLowerCase()
     .trim()
-    .replace(/[^\w\s-]/g, '')
+    .replace(/[^a-z\s-]/gi, '')
     .replace(/[\s_-]+/g, ' ');
-  
+
   const words = sanitized.split(' ').filter(word => word.length > 0);
   const firstTwoWords = words.slice(0, 2).join('-');
   
   return firstTwoWords.substring(0, 30);
 }
+
 
 function isAdmin(userId) {
   return ADMIN_IDS.includes(userId);
