@@ -600,23 +600,24 @@ bot.onText(/\/start/, (msg) => {
   const userId = msg.from.id;
 
   if (!security.checkRateLimit(`bot_${userId}`, 10, 60000)) {
-    bot.sendMessage(chatId, "⏳ Please wait before sending more commands.");
+bot.sendMessage(chatId, "⏳ يرجى الانتظار قبل إرسال المزيد من الأوامر.")
     return;
   }
 
   if (!isAdmin(userId)) {
     security.logSuspiciousActivity(userId, 'unauthorized_access_attempt');
     bot.sendMessage(
-      chatId,
-      "❌ Access denied. You are not authorized to use this bot."
-    );
+    chatId,
+    "❌ الوصول مرفوض. أنت غير مصرح لك باستخدام هذا البوت."
+)
+
     return;
   }
 
   bot.sendMessage(
     chatId,
-    `🔐 Welcome to Rabatte&Deal&DE Admin Panel!\n\n` +
-      `Choose an action from the menu below:`,
+    "🔐 مرحبًا بك في لوحة تحكم Rabatte&Deal&DE!\n\n" +
+    "اختر إجراءً من القائمة أدناه:",
     { reply_markup: adminKeyboard }
   );
 });
@@ -638,7 +639,7 @@ bot.on("photo", async (msg) => {
   if (!isAdmin(userId)) return;
 
   if (!security.checkRateLimit(`photo_${userId}`, 3, 60000)) {
-    bot.sendMessage(chatId, "⏳ Please wait before uploading more photos.");
+bot.sendMessage(chatId, "⏳ يرجى الانتظار قبل رفع المزيد من الصور.")
     return;
   }
 
@@ -676,7 +677,7 @@ bot.on("photo", async (msg) => {
       console.error("❌ Error processing photo:", error);
       session.completing = false;
       userSessions.set(userId, session);
-      bot.sendMessage(chatId, "❌ Error processing photo. Please try again or enter an image URL.");
+bot.sendMessage(chatId, "❌ خطأ في معالجة الصورة. يرجى المحاولة مرة أخرى أو إدخال رابط صورة.")
     }
   }
 });
@@ -696,12 +697,12 @@ bot.on("message", async (msg) => {
 
   if (!isAdmin(userId)) {
     security.logSuspiciousActivity(userId, 'unauthorized_message');
-    bot.sendMessage(chatId, "❌ Access denied.");
+bot.sendMessage(chatId, "❌ الوصول مرفوض.")
     return;
   }
 
   if (!security.checkRateLimit(`msg_${userId}`, 20, 60000)) {
-    bot.sendMessage(chatId, "⏳ Please slow down with your messages.");
+bot.sendMessage(chatId, "⏳ يرجى التمهل في إرسال الرسائل.")
     return;
   }
 
@@ -740,7 +741,7 @@ bot.on("message", async (msg) => {
       break;
     case "❌ Cancel":
       userSessions.delete(userId);
-      bot.sendMessage(chatId, "✅ Operation cancelled.", {
+      bot.sendMessage(chatId, "✅ تم إلغاء العملية.", {
         reply_markup: adminKeyboard,
       });
       break;
@@ -748,10 +749,11 @@ bot.on("message", async (msg) => {
       if (!text.startsWith("/")) {
         bot.sendMessage(
           chatId,
-          "❓ Unknown command. Please use the menu buttons.",
+          "❓ أمر غير معروف. يرجى استخدام أزرار القائمة.",
           { reply_markup: adminKeyboard }
         );
       }
+
   }
 });
 
@@ -775,7 +777,7 @@ async function startAddDeal(chatId, userId) {
 
   bot.sendMessage(
     chatId,
-    "📝 Adding new deal...\n\nPlease enter the deal name (5-100 characters):"
+"📝 إضافة عرض جديد...\n\nيرجى إدخال اسم العرض (5-100 حرف):"
   );
 }
 
@@ -786,46 +788,46 @@ async function handleAddDealSession(chatId, userId, text, session) {
     case "name":{
       const sanitizedName = InputValidator.sanitizeText(text, 100);
       if (sanitizedName.length < 5 || sanitizedName.length > 100) {
-        bot.sendMessage(chatId, "❌ Deal name must be 5-100 characters long:");
+bot.sendMessage(chatId, "❌ يجب أن يكون اسم العرض بين 5 و 100 حرف:")
         return;}
 
       data.name = sanitizedName;
       session.step = "description";
       userSessions.set(userId, session);
-      bot.sendMessage(chatId, "✅ Name saved!\n\nNow enter the description (10-500 characters):");
+bot.sendMessage(chatId, "✅ تم حفظ الاسم!\n\nالآن أدخل الوصف (10-500 حرف):")
       break;}
 
     case "description":{
       const sanitizedDesc = InputValidator.sanitizeText(text, 500);
       if (sanitizedDesc.length < 10 || sanitizedDesc.length > 500) {
-        bot.sendMessage(chatId, "❌ Description must be 10-500 characters long:");
+bot.sendMessage(chatId, "❌ يجب أن يكون الوصف بين 10 و 500 حرف:")
         return;
       }
       data.description = sanitizedDesc;
       session.step = "original_price";
       userSessions.set(userId, session);
-      bot.sendMessage(chatId, "✅ Description saved!\n\nEnter the original price (e.g., 99.99):");
+bot.sendMessage(chatId, "✅ تم حفظ الوصف!\n\nأدخل السعر الأصلي (مثلاً 99.99):")
       break;}
 
     case "original_price":{
       if (!InputValidator.validatePrice(text)) {
-        bot.sendMessage(chatId, "❌ Please enter a valid price (0.01 - 99999.99):");
+bot.sendMessage(chatId, "❌ يرجى إدخال سعر صالح (0.01 - 99999.99):")
         return;
       }
       data.originalPrice = parseFloat(text);
       session.step = "deal_price";
       userSessions.set(userId, session);
-      bot.sendMessage(chatId, "✅ Original price saved!\n\nEnter the deal price:");
+bot.sendMessage(chatId, "✅ تم حفظ السعر الأصلي!\n\nأدخل سعر العرض:")
       break;}
 
     case "deal_price":{
       if (!InputValidator.validatePrice(text)) {
-        bot.sendMessage(chatId, "❌ Please enter a valid price (0.01 - 99999.99):");
+bot.sendMessage(chatId, "❌ يرجى إدخال سعر صالح (0.01 - 99999.99):")
         return;
       }
       const dealPrice = parseFloat(text);
       if (dealPrice >= data.originalPrice) {
-        bot.sendMessage(chatId, "❌ Deal price must be lower than original price:");
+bot.sendMessage(chatId, "❌ يجب أن يكون سعر العرض أقل من السعر الأصلي:")
         return;
       }
       data.dealPrice = dealPrice;
@@ -843,7 +845,19 @@ async function handleAddDealSession(chatId, userId, text, session) {
       }
       session.step = "category";
       userSessions.set(userId, session);
-      bot.sendMessage(chatId, `✅ Coupon ${data.coupon ? 'saved' : 'skipped'}!\n\nEnter the category (elektronik, küche, kinder, sport):`);
+validCategories = [
+    'elektronik', 'bücher', 'games', 'spielzeug', 'küche', 
+    'lebensmittel', 'drogerie', 'fashion', 'sport', 'auto', 
+    'haustier', 'büro', 'multimedia', 'computer', 'gesundheit', 
+    'werkzeuge', 'garten', 'musik', 'software'
+]
+
+bot.sendMessage(
+  chatId,
+  `✅ تم ${data.coupon ? 'حفظ' : 'تخطي'} القسيمة!\n\n` +
+  `أدخل التصنيف (واحد من هذه التصنيفات: ${validCategories.join(', ')}):`
+);
+
       break;}
 
     case "category":{
@@ -856,29 +870,30 @@ async function handleAddDealSession(chatId, userId, text, session) {
     ];
     
     if (!validCategories.includes(category)) {
-        bot.sendMessage(chatId, 
-            "❌ Please enter a valid category:\n" +
-            "elektronik, bücher, games, spielzeug, küche, lebensmittel,Haushalt " +
-            "drogerie, fashion, sport, auto, haustier, büro, multimedia, " +
-            "computer, gesundheit, werkzeuge, garten, musik, software"
-        );
-        return;
-    }
+    bot.sendMessage(chatId, 
+        "❌ يرجى إدخال تصنيف صالح:\n" +
+        "elektronik, bücher, games, spielzeug, küche, lebensmittel, Haushalt, " +
+        "drogerie, fashion, sport, auto, haustier, büro, multimedia, " +
+        "computer, gesundheit, werkzeuge, garten, musik, software"
+    );
+    return;
+}
+
     data.category = category;
     session.step = "amazon_url";
     userSessions.set(userId, session);
-    bot.sendMessage(chatId, "✅ Category saved!\n\nEnter the Amazon URL (must be HTTPS):");
+bot.sendMessage(chatId, "✅ تم حفظ التصنيف!\n\nأدخل رابط أمازون (يجب أن يكون HTTPS):");
     break;}
 
     case "amazon_url":{
       if (!InputValidator.validateURL(text)) {
-        bot.sendMessage(chatId, "❌ Please enter a valid HTTPS Amazon URL from supported domains:");
+bot.sendMessage(chatId, "❌ يرجى إدخال رابط أمازون HTTPS صالح من النطاقات المدعومة:");
         return;
       }
       data.amazonUrl = text;
       session.step = "photo";
       userSessions.set(userId, session);
-      bot.sendMessage(chatId, "✅ Amazon URL saved!\n\nSend a photo or enter an HTTPS image URL:");
+bot.sendMessage(chatId, "✅ تم حفظ رابط أمازون!\n\nأرسل صورة أو أدخل رابط صورة HTTPS:");
       break;}
 
     case "photo":{
@@ -895,7 +910,7 @@ async function handleAddDealSession(chatId, userId, text, session) {
       } else {
         session.completing = false;
         userSessions.set(userId, session);
-        bot.sendMessage(chatId, "❌ Please send a photo or enter a valid HTTPS image URL:");
+bot.sendMessage(chatId, "❌ يرجى إرسال صورة أو إدخال رابط صورة HTTPS صالح:");
       }
       break;}
   }
@@ -941,31 +956,30 @@ async function completeDealAdd(chatId, userId, data) {
 
     const dealUrl = `${WEBSITE_URL}/deal/${slug}-${dealId}`;
 
-    bot.sendMessage(
-      chatId,
-      `✅ Deal added successfully!\n\n` +
-        `🆔 Deal ID: ${dealId}\n` +
-        `📝 Name: ${data.name}\n` +
-        `💰 Price: €${data.dealPrice} (was €${data.originalPrice})\n` +
-        `🏷️ Discount: ${discount}%\n` +
-        `📂 Category: ${data.category}\n` +
-        `🎫 Coupon: ${data.coupon || 'None'}\n\n` +
-        `🔗 Deal URL: ${dealUrl}\n\n` +
-        `Use ID "${dealId}" to modify or delete this deal.`,
-      { reply_markup: adminKeyboard }
-    );
+bot.sendMessage(
+  chatId,
+  `✅ تم إضافة العرض بنجاح!\n\n` +
+  `🆔 معرف العرض: ${dealId}\n` +
+  `📝 الاسم: ${data.name}\n` +
+  `💰 السعر: €${data.dealPrice} (كان €${data.originalPrice})\n` +
+  `🏷️ الخصم: ${discount}%\n` +
+  `📂 التصنيف: ${data.category}\n` +
+  `🎫 القسيمة: ${data.coupon || 'لا يوجد'}\n\n` +
+  `🔗 رابط العرض: ${dealUrl}\n\n` +
+  `استخدم المعرف "${dealId}" لتعديل أو حذف هذا العرض.`,
+  { reply_markup: adminKeyboard }
+);
 
-    console.log(`✅ New deal added by admin ${userId}: ${dealId}`);
   } catch (error) {
     console.error("❌ Error completing deal add:", error);
-    bot.sendMessage(chatId, `❌ Error saving deal: ${error.message}. Please try again.`);
+bot.sendMessage(chatId, `❌ حدث خطأ أثناء حفظ العرض: ${error.message}. يرجى المحاولة مرة أخرى.`);
     userSessions.delete(userId);
   }
 }
 
 async function startDeleteDeal(chatId, userId) {
   if (deals.length === 0) {
-    bot.sendMessage(chatId, "❌ No deals available to delete.", {
+bot.sendMessage(chatId, "❌ لا توجد عروض متاحة للحذف.", {
       reply_markup: adminKeyboard,
     });
     return;
@@ -994,14 +1008,14 @@ async function handleDeleteDealSession(chatId, userId, text, session) {
   const dealId = InputValidator.sanitizeText(text, 50).trim();
   
   if (!/^[0-9a-f]{8,}$/i.test(dealId)) {
-    bot.sendMessage(chatId, "❌ Invalid deal ID format. Please enter a valid Deal ID:");
+bot.sendMessage(chatId, "❌ صيغة معرف العرض غير صحيحة. يرجى إدخال معرف عرض صالح:");
     return;
   }
   
   const dealIndex = deals.findIndex((deal) => deal.id === dealId);
 
   if (dealIndex === -1) {
-    bot.sendMessage(chatId, "❌ Deal not found. Please enter a valid Deal ID:");
+bot.sendMessage(chatId, "❌ لم يتم العثور على العرض. يرجى إدخال معرف عرض صالح:");
     return;
   }
 
@@ -1010,58 +1024,59 @@ async function handleDeleteDealSession(chatId, userId, text, session) {
   userSessions.delete(userId);
 
  bot.sendMessage(
-   chatId,
-   `✅ Deal deleted successfully!\n\n` +
-     `🆔 Deleted Deal ID: ${dealId}\n` +
-     `📝 Name: ${deletedDeal.title}`,
-   { reply_markup: adminKeyboard }
- );
+  chatId,
+  `✅ تم حذف العرض بنجاح!\n\n` +
+  `🆔 معرف العرض المحذوف: ${dealId}\n` +
+  `📝 الاسم: ${deletedDeal.title}`,
+  { reply_markup: adminKeyboard }
+);
 
- console.log(`🗑️ Deal deleted by admin ${userId}: ${dealId}`);
+console.log(`🗑️ تم حذف العرض بواسطة المدير ${userId}: ${dealId}`);
 }
 
 async function startChangeDeal(chatId, userId) {
- if (deals.length === 0) {
-   bot.sendMessage(chatId, "❌ No deals available to change.", {
-     reply_markup: adminKeyboard,
-   });
-   return;
- }
+  if (deals.length === 0) {
+    bot.sendMessage(chatId, "❌ لا توجد عروض متاحة للتعديل.", {
+      reply_markup: adminKeyboard,
+    });
+    return;
+  }
 
- const session = createSecureSession(userId, "change_deal");
- session.step = "select_id";
- userSessions.set(userId, session);
+  const session = createSecureSession(userId, "change_deal");
+  session.step = "select_id";
+  userSessions.set(userId, session);
 
- let dealsList = "✏️ Select a deal to modify:\n\n";
- const activeDeals = deals.filter(deal => deal.timer > Date.now()).slice(0, 10);
- 
- activeDeals.forEach((deal) => {
-   dealsList += `🆔 ${deal.id}\n📝 ${deal.title.substring(0, 50)}...\n💰 €${deal.price}\n\n`;
- });
+  let dealsList = "✏️ اختر عرضًا للتعديل:\n\n";
+  const activeDeals = deals.filter(deal => deal.timer > Date.now()).slice(0, 10);
 
- if (deals.length > 10) {
-   dealsList += `... and ${deals.length - 10} more deals\n\n`;
- }
+  activeDeals.forEach((deal) => {
+    dealsList += `🆔 ${deal.id}\n📝 ${deal.title.substring(0, 50)}...\n💰 €${deal.price}\n\n`;
+  });
 
- dealsList += "Enter the Deal ID to modify:";
- bot.sendMessage(chatId, dealsList);
+  if (deals.length > 10) {
+    dealsList += `... و ${deals.length - 10} عروض أخرى\n\n`;
+  }
+
+  dealsList += "أدخل معرف العرض للتعديل:";
+  bot.sendMessage(chatId, dealsList);
 }
+
 
 async function handleChangeDealSession(chatId, userId, text, session) {
  if (session.step === "select_id") {
    const dealId = InputValidator.sanitizeText(text, 50).trim();
    
    if (!/^[0-9a-f]{8,}$/i.test(dealId)) {
-     bot.sendMessage(chatId, "❌ Invalid deal ID format. Please enter a valid Deal ID:");
+     bot.sendMessage(chatId, "❌ صيغة معرف العرض غير صحيحة. يرجى إدخال معرف عرض صالح:");
      return;
    }
-   
-   const deal = deals.find((d) => d.id === dealId);
+const deal = deals.find((d) => d.id === dealId);
 
-   if (!deal) {
-     bot.sendMessage(chatId, "❌ Deal not found. Please enter a valid Deal ID:");
-     return;
-   }
+if (!deal) {
+  bot.sendMessage(chatId, "❌ لم يتم العثور على العرض. يرجى إدخال معرف عرض صالح:");
+  return;
+}
+
 
    session.dealId = dealId;
    session.step = "select_field";
@@ -1080,7 +1095,7 @@ async function handleChangeDealSession(chatId, userId, text, session) {
 
    bot.sendMessage(
      chatId,
-     `✏️ Modifying deal: ${deal.title}\n\nWhich field do you want to change?`,
+`✏️ تعديل العرض: ${deal.title}\n\nأي حقل تريد تغييره؟`,
      { reply_markup: fieldKeyboard }
    );
  } else if (session.step === "select_field") {
@@ -1211,20 +1226,20 @@ async function handleChangeDealSession(chatId, userId, text, session) {
 
      bot.sendMessage(
        chatId,
-       `✅ Deal updated successfully!\n\n` +
-         `🆔 Deal ID: ${deal.id}\n` +
-         `📝 Name: ${deal.title}\n` +
-         `💰 Price: €${deal.price} (was €${deal.oldPrice})\n` +
-         `🏷️ Discount: ${deal.discount}%\n` +
-         `📂 Category: ${deal.category}\n\n` +
-         `🔗 Deal URL: ${dealUrl}`,
+       `✅ تم تحديث العرض بنجاح!\n\n` +
+`🆔 معرف العرض: ${deal.id}\n` +
+`📝 الاسم: ${deal.title}\n` +
+`💰 السعر: €${deal.price} (كان €${deal.oldPrice})\n` +
+`🏷️ الخصم: ${deal.discount}%\n` +
+`📂 التصنيف: ${deal.category}\n\n` +
+`🔗 رابط العرض: ${dealUrl}`,
+
        { reply_markup: adminKeyboard }
      );
 
-     console.log(`✏️ Deal updated by admin ${userId}: ${deal.id}`);
    } catch (error) {
      console.error("❌ Error updating deal:", error);
-     bot.sendMessage(chatId, `❌ Error updating deal: ${error.message}`);
+bot.sendMessage(chatId, `❌ حدث خطأ أثناء تحديث العرض: ${error.message}`);
      userSessions.delete(userId);
    }
  }
@@ -1277,7 +1292,7 @@ async function showStats(chatId) {
 async function listAllDeals(chatId) {
   try {
     if (deals.length === 0) {
-      bot.sendMessage(chatId, "❌ No deals available.", { reply_markup: adminKeyboard });
+bot.sendMessage(chatId, "❌ لا توجد عروض متاحة.", { reply_markup: adminKeyboard });
       return;
     }
 
