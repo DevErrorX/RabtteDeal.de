@@ -288,12 +288,12 @@ class InputValidator {
       errors.push('Deal price must be lower than original price');
     }
   
-   const validCategories = [
-    'elektronik', 'bücher', 'games', 'spielzeug', 'küche', 
-    'lebensmittel', 'drogerie', 'fashion', 'sport', 'auto', 
-    'haustier', 'büro', 'multimedia', 'computer', 'gesundheit', 
-    'werkzeuge', 'garten', 'musik', 'software'
-];
+const validCategories = [
+        'elektronik', 'bücher', 'games', 'spielzeug', 'küche', 
+        'lebensmittel', 'drogerie', 'fashion', 'sport', 'auto', 
+        'haustier', 'büro', 'multimedia', 'computer', 'gesundheit', 
+        'werkzeuge', 'garten', 'musik', 'software'
+    ];
 
 if (!data.category || !validCategories.includes(data.category.toLowerCase())) {
     errors.push('Invalid category');
