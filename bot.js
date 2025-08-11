@@ -566,9 +566,7 @@ function generateSlug(title) {
     .replace(/[\s_-]+/g, ' ');
 
   const words = sanitized.split(' ').filter(word => word.length > 0);
-  const firstTwoWords = words.slice(0, 2).join('-');
-  
-  return firstTwoWords.substring(0, 30);
+  return words.slice(0, 2).join('-');
 }
 
 
@@ -1607,3 +1605,4 @@ if (require.main === module) {
 
 
 module.exports = { app, startWebsite, security };
+
