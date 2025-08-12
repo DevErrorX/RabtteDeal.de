@@ -1,0 +1,42 @@
+# ملف .gitignore لمشروع Rabatte&Deal&DE
+
+### ملفات النظام ###
+.DS_Store
+Thumbs.db
+
+### ملفات البيئة ###
+.env
+.env.local
+.env.*.local
+
+### تبعيات Node ###
+/node_modules/
+/.pnp
+.pnp.js
+
+### ملفات التطبيق الحساسة ###
+/private/
+deals.json  # ملف احتياطي في حالة وجوده في مجلد root
+
+### ملفات البناء ###
+/dist/
+/build/
+
+### ملفات IDE ###
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+### ملفات Logs ###
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+### ملفات الاختبار ###
+/coverage/
