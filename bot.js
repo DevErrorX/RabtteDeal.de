@@ -839,7 +839,7 @@ bot.sendMessage(chatId, "✅ تم حفظ سعر العرض!\n\nهل لديك ر�
       'elektronik', 'bücher', 'games', 'spielzeug', 'küche', 
       'lebensmittel', 'drogerie', 'fashion', 'sport', 'auto', 
       'haustier', 'büro', 'multimedia', 'computer', 'gesundheit', 
-      'werkzeuge', 'garten', 'musik', 'software'
+      'werkzeuge', 'garten', 'musik', 'software','Haushalt'
   ]
 
       bot.sendMessage(
