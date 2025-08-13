@@ -1573,18 +1573,27 @@ app.get('/deal/:slug', async (req, res) => {
 
     let deal = null;
     
-    const slugParts = slug.split('-');
-    const possibleDealId = slugParts[slugParts.length - 1];
+    // First, try to find by exact slug match
+    deal = deals.find(d => d.slug === slug);
     
-    if (possibleDealId && /^[0-9a-f]{8,}$/i.test(possibleDealId)) {
-      deal = deals.find(d => d.id === possibleDealId);
+    // If not found, try partial slug match (in case of URL variations)
+    if (!deal) {
+      deal = deals.find(d => slug.startsWith(d.slug) || d.slug.startsWith(slug));
+    }
+    
+    // Last resort: check if slug contains a deal ID
+    if (!deal) {
+      const slugParts = slug.split('-');
+      for (const part of slugParts) {
+        if (/^[0-9a-f]{8,}$/i.test(part)) {
+          deal = deals.find(d => d.id === part);
+          if (deal) break;
+        }
+      }
     }
     
     if (!deal) {
-      deal = deals.find(d => d.slug === slug || slug.startsWith(d.slug));
-    }
-    
-    if (!deal) {
+      console.warn(`🔍 Deal not found for slug: ${slug}`);
       return res.status(404).send(generateErrorPage(
         "Deal Not Found", 
         "The requested deal could not be found"
@@ -1605,7 +1614,8 @@ app.get('/deal/:slug', async (req, res) => {
       ));
     }
 
-    console.log(`🔗 Direct redirect to Amazon for deal "${slug}" (ID: ${deal.id}) from IP ${req.ip}`);
+    console.log(`🔗 Redirecting to Amazon for deal "${deal.title}" (ID: ${deal.id}, Slug: ${deal.slug}) from IP ${req.ip}`);
+    console.log(`🔗 Amazon URL: ${deal.amazonUrl}`);
     
     res.setHeader('X-Robots-Tag', 'noindex, nofollow');
     res.setHeader('Referrer-Policy', 'no-referrer');
@@ -1709,45 +1719,61 @@ app.use((req, res, next) => {
 
 app.get('/secure-image/:id', async (req, res) => {
   try {
-    const deal = deals.find(d => d.id === req.params.id);
-    if (!deal || !deal.imageUrl) {
+    const requestedId = req.params.id;
+    
+    // Find deal by ID or by image file ID
+    let deal = deals.find(d => d.id === requestedId);
+    
+    if (!deal) {
+      // Try to find by image info file_id
+      deal = deals.find(d => d.imageInfo && d.imageInfo.file_id === requestedId);
+    }
+    
+    if (!deal) {
+      console.warn(`🖼️ Image not found for ID: ${requestedId}`);
       return res.redirect('https://via.placeholder.com/300?text=Image+Not+Available');
     }
 
-    if (deal.imageUrl.startsWith('http')) {
-      return res.redirect(deal.imageUrl);
-    }
-
-    if (deal.imageUrl.startsWith('/secure-image/')) {
-      const fileId = deal.imageUrl.replace('/secure-image/', '');
+    // Handle different image URL formats
+    if (deal.imageInfo && deal.imageInfo.file_id) {
+      const fileId = deal.imageInfo.file_id;
       
       try {
         const fileInfo = await bot.getFile(fileId);
-        
-        const filePath = fileInfo.file_path || fileId;
+        const filePath = fileInfo.file_path;
         const telegramUrl = `https://api.telegram.org/file/bot${BOT_TOKEN}/${filePath}`;
         
         const response = await axios({
           method: 'get',
           url: telegramUrl,
           responseType: 'stream',
-          timeout: 5000
+          timeout: 10000,
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (compatible; ImageBot/1.0)'
+          }
         });
 
         res.set({
           'Content-Type': response.headers['content-type'] || 'image/jpeg',
-          'Cache-Control': 'public, max-age=86400'
+          'Cache-Control': 'public, max-age=86400',
+          'Access-Control-Allow-Origin': '*'
         });
 
         response.data.pipe(res);
-      } catch (error) {
-        console.error('Telegram image error:', error);
-        const fallbackUrl = `https://api.telegram.org/file/bot${BOT_TOKEN}/${fileId}`;
-        return res.redirect(fallbackUrl);
+        return;
+      } catch (telegramError) {
+        console.error('Telegram image error:', telegramError);
       }
-    } else {
-      return res.redirect('https://via.placeholder.com/300?text=Image+Not+Available');
     }
+
+    // Fallback for external image URLs
+    if (deal.imageUrl && deal.imageUrl.startsWith('http')) {
+      return res.redirect(deal.imageUrl);
+    }
+
+    // Ultimate fallback
+    return res.redirect('https://via.placeholder.com/300?text=Image+Not+Available');
+    
   } catch (error) {
     console.error('Image proxy error:', error);
     res.redirect('https://via.placeholder.com/300?text=Image+Not+Available');
