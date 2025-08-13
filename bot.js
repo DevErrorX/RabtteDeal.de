@@ -914,78 +914,49 @@ async function completeDealAdd(chatId, userId, data) {
       hasImageInfo: !!data.imageInfo
     });
 
-    // Validate all deal data
     const validationErrors = InputValidator.validateDealData(data);
     if (validationErrors.length > 0) {
       console.error('❌ Validation failed:', validationErrors);
       throw new Error(`Validation failed: ${validationErrors.join(', ')}`);
     }
 
-    // Generate unique deal ID and slug
     const dealId = generateDealId();
     const slug = generateSlug(data.name);
     
-    // Calculate discount percentage
     const discount = Math.round(
       ((data.originalPrice - data.dealPrice) / data.originalPrice) * 100
     );
 
-    // Determine badge based on discount
     const badge = discount >= 70 ? "HOT" : discount >= 50 ? "FIRE" : discount >= 30 ? "DEAL" : "SAVE";
 
-    // Set expiration time (24 hours from now)
     const expirationTime = Date.now() + (24 * 60 * 60 * 1000);
 
-    // Generate random but realistic ratings and reviews
-    const rating = (Math.random() * 1.5 + 3.5).toFixed(1); // 3.5 to 5.0
-    const reviews = Math.floor(Math.random() * 2000) + 100; // 100 to 2100 reviews
-
-    // Create the complete deal object
+    const rating = (Math.random() * 1.5 + 3.5).toFixed(1); 
+    const reviews = Math.floor(Math.random() * 2000) + 100; 
     const newDeal = {
-      // Basic identifiers
       id: dealId,
       slug: slug,
-      
-      // Deal information
       title: data.name.trim(),
       description: data.description.trim(),
-      
-      // Pricing
       price: parseFloat(data.dealPrice),
       oldPrice: parseFloat(data.originalPrice),
       discount: discount,
-      
-      // Classification
       category: data.category.toLowerCase(),
-      
-      // URLs and media
       amazonUrl: data.amazonUrl,
       imageUrl: `/secure-image/${dealId}`,
       imageInfo: data.imageInfo || null,
-      
-      // Additional features
       coupon: data.coupon && data.coupon.trim() ? data.coupon.trim() : null,
-      
-      // Social proof
       rating: parseFloat(rating),
       reviews: reviews,
-      
-      // Status and timing
       timer: expirationTime,
       badge: badge,
       isActive: true,
       isFeatured: discount >= 60,
-      
-      // Metadata
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       createdBy: userId,
-      
-      // SEO and tracking
       views: 0,
       clicks: 0,
-      
-      // Additional fields for frontend
       currency: "EUR",
       availability: "In Stock",
       shipping: discount >= 50 ? "Free Shipping" : null
@@ -1000,27 +971,15 @@ async function completeDealAdd(chatId, userId, data) {
       hasImageInfo: !!newDeal.imageInfo,
       expiresAt: new Date(newDeal.timer).toISOString()
     });
-
-    // Add deal to array
     deals.push(newDeal);
-    
-    // Save deals to file
     await saveDeals();
     console.log(`💾 Deal saved successfully. Total deals: ${deals.length}`);
-
-    // Clean up user session
     userSessions.delete(userId);
-
-    // Generate deal URLs
     const dealUrl = `${WEBSITE_URL}/deal/${slug}`;
     const redirectUrl = `${WEBSITE_URL}/redirect/${dealId}`;
     const apiUrl = `${WEBSITE_URL}/api/deal/${slug}`;
-
-    // Calculate savings
     const savings = (data.originalPrice - data.dealPrice).toFixed(2);
     const savingsPercent = discount;
-
-    // Create success message
     const successMessage = `✅ تم إضافة العرض بنجاح!\n\n` +
       `🆔 معرف العرض: ${dealId}\n` +
       `📝 الاسم: ${data.name}\n` +
@@ -1040,18 +999,15 @@ async function completeDealAdd(chatId, userId, data) {
       `• للتعديل: استخدم "✏️ Change Deal" مع المعرف "${dealId}"\n` +
       `• للحذف: استخدم "🗑️ Delete Deal" مع المعرف "${dealId}"`;
 
-    // Send success message
     await bot.sendMessage(chatId, successMessage, { 
       reply_markup: adminKeyboard,
       parse_mode: 'HTML'
     });
 
-    // Log successful creation
     console.log(`🎉 Deal "${data.name}" (${dealId}) created successfully by admin ${userId}`);
     console.log(`🔗 Deal accessible at: ${dealUrl}`);
     console.log(`🛍️ Amazon redirect: ${data.amazonUrl}`);
 
-    // Optional: Send a preview of the deal (if you want to show how it looks)
     try {
       const previewMessage = `📋 معاينة العرض:\n\n` +
         `🛍️ ${newDeal.title}\n` +
@@ -1071,10 +1027,8 @@ async function completeDealAdd(chatId, userId, data) {
   } catch (error) {
     console.error("❌ Error completing deal add:", error);
     
-    // Clean up session on error
     userSessions.delete(userId);
     
-    // Send detailed error message
     let errorMessage = "❌ حدث خطأ أثناء حفظ العرض:\n\n";
     
     if (error.message.includes('Validation failed')) {
@@ -1573,15 +1527,12 @@ app.get('/deal/:slug', async (req, res) => {
 
     let deal = null;
     
-    // First, try to find by exact slug match
     deal = deals.find(d => d.slug === slug);
     
-    // If not found, try partial slug match (in case of URL variations)
     if (!deal) {
       deal = deals.find(d => slug.startsWith(d.slug) || d.slug.startsWith(slug));
     }
     
-    // Last resort: check if slug contains a deal ID
     if (!deal) {
       const slugParts = slug.split('-');
       for (const part of slugParts) {
@@ -1721,11 +1672,9 @@ app.get('/secure-image/:id', async (req, res) => {
   try {
     const requestedId = req.params.id;
     
-    // Find deal by ID or by image file ID
     let deal = deals.find(d => d.id === requestedId);
     
     if (!deal) {
-      // Try to find by image info file_id
       deal = deals.find(d => d.imageInfo && d.imageInfo.file_id === requestedId);
     }
     
@@ -1734,7 +1683,6 @@ app.get('/secure-image/:id', async (req, res) => {
       return res.redirect('https://via.placeholder.com/300?text=Image+Not+Available');
     }
 
-    // Handle different image URL formats
     if (deal.imageInfo && deal.imageInfo.file_id) {
       const fileId = deal.imageInfo.file_id;
       
@@ -1766,12 +1714,10 @@ app.get('/secure-image/:id', async (req, res) => {
       }
     }
 
-    // Fallback for external image URLs
     if (deal.imageUrl && deal.imageUrl.startsWith('http')) {
       return res.redirect(deal.imageUrl);
     }
 
-    // Ultimate fallback
     return res.redirect('https://via.placeholder.com/300?text=Image+Not+Available');
     
   } catch (error) {
