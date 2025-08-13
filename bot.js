@@ -906,73 +906,192 @@ bot.sendMessage(chatId, "✅ تم حفظ رابط أمازون!\n\nأرسل صو
 }
   }
 }
-
 async function completeDealAdd(chatId, userId, data) {
   try {
+    console.log(`🔄 Starting deal completion for user ${userId}:`, {
+      name: data.name,
+      amazonUrl: data.amazonUrl,
+      hasImageInfo: !!data.imageInfo
+    });
+
+    // Validate all deal data
     const validationErrors = InputValidator.validateDealData(data);
     if (validationErrors.length > 0) {
+      console.error('❌ Validation failed:', validationErrors);
       throw new Error(`Validation failed: ${validationErrors.join(', ')}`);
     }
 
+    // Generate unique deal ID and slug
     const dealId = generateDealId();
     const slug = generateSlug(data.name);
+    
+    // Calculate discount percentage
     const discount = Math.round(
       ((data.originalPrice - data.dealPrice) / data.originalPrice) * 100
     );
 
-    const imageUrl = data.imageUrl.startsWith('/secure-image/') 
-      ? data.imageUrl 
-      : `/secure-image/${dealId}`;
+    // Determine badge based on discount
+    const badge = discount >= 70 ? "HOT" : discount >= 50 ? "FIRE" : discount >= 30 ? "DEAL" : "SAVE";
 
+    // Set expiration time (24 hours from now)
+    const expirationTime = Date.now() + (24 * 60 * 60 * 1000);
+
+    // Generate random but realistic ratings and reviews
+    const rating = (Math.random() * 1.5 + 3.5).toFixed(1); // 3.5 to 5.0
+    const reviews = Math.floor(Math.random() * 2000) + 100; // 100 to 2100 reviews
+
+    // Create the complete deal object
     const newDeal = {
+      // Basic identifiers
       id: dealId,
       slug: slug,
-      title: data.name,
-      description: data.description,
-      price: data.dealPrice,
-      oldPrice: data.originalPrice,
+      
+      // Deal information
+      title: data.name.trim(),
+      description: data.description.trim(),
+      
+      // Pricing
+      price: parseFloat(data.dealPrice),
+      oldPrice: parseFloat(data.originalPrice),
       discount: discount,
-      category: data.category,
+      
+      // Classification
+      category: data.category.toLowerCase(),
+      
+      // URLs and media
       amazonUrl: data.amazonUrl,
-imageUrl: data.imageUrl,
-      imageInfo: data.imageInfo,
-      coupon: data.coupon || null,
-      rating: 4.5,
-      reviews: Math.floor(Math.random() * 1000) + 100,
-      timer: Date.now() + 24 * 60 * 60 * 1000,
-      badge: discount > 50 ? "HOT" : "DEAL",
+      imageUrl: `/secure-image/${dealId}`,
+      imageInfo: data.imageInfo || null,
+      
+      // Additional features
+      coupon: data.coupon && data.coupon.trim() ? data.coupon.trim() : null,
+      
+      // Social proof
+      rating: parseFloat(rating),
+      reviews: reviews,
+      
+      // Status and timing
+      timer: expirationTime,
+      badge: badge,
+      isActive: true,
+      isFeatured: discount >= 60,
+      
+      // Metadata
       createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
       createdBy: userId,
+      
+      // SEO and tracking
+      views: 0,
+      clicks: 0,
+      
+      // Additional fields for frontend
+      currency: "EUR",
+      availability: "In Stock",
+      shipping: discount >= 50 ? "Free Shipping" : null
     };
 
-    deals.push(newDeal);
-    await saveDeals();
+    console.log(`✅ Created deal object:`, {
+      id: newDeal.id,
+      slug: newDeal.slug,
+      title: newDeal.title,
+      discount: newDeal.discount,
+      badge: newDeal.badge,
+      hasImageInfo: !!newDeal.imageInfo,
+      expiresAt: new Date(newDeal.timer).toISOString()
+    });
 
+    // Add deal to array
+    deals.push(newDeal);
+    
+    // Save deals to file
+    await saveDeals();
+    console.log(`💾 Deal saved successfully. Total deals: ${deals.length}`);
+
+    // Clean up user session
     userSessions.delete(userId);
 
+    // Generate deal URLs
     const dealUrl = `${WEBSITE_URL}/deal/${slug}`;
+    const redirectUrl = `${WEBSITE_URL}/redirect/${dealId}`;
+    const apiUrl = `${WEBSITE_URL}/api/deal/${slug}`;
 
-bot.sendMessage(
-  chatId,
-  `✅ تم إضافة العرض بنجاح!\n\n` +
-  `🆔 معرف العرض: ${dealId}\n` +
-  `📝 الاسم: ${data.name}\n` +
-  `💰 السعر: €${data.dealPrice} (كان €${data.originalPrice})\n` +
-  `🏷️ الخصم: ${discount}%\n` +
-  `📂 التصنيف: ${data.category}\n` +
-  `🎫 القسيمة: ${data.coupon || 'لا يوجد'}\n\n` +
-  `🔗 رابط العرض: ${dealUrl}\n\n` +
-  `استخدم المعرف "${dealId}" لتعديل أو حذف هذا العرض.`,
-  { reply_markup: adminKeyboard }
-);
+    // Calculate savings
+    const savings = (data.originalPrice - data.dealPrice).toFixed(2);
+    const savingsPercent = discount;
+
+    // Create success message
+    const successMessage = `✅ تم إضافة العرض بنجاح!\n\n` +
+      `🆔 معرف العرض: ${dealId}\n` +
+      `📝 الاسم: ${data.name}\n` +
+      `💰 السعر: €${data.dealPrice} (كان €${data.originalPrice})\n` +
+      `💵 التوفير: €${savings} (${savingsPercent}%)\n` +
+      `🏷️ الشارة: ${badge}\n` +
+      `📂 التصنيف: ${data.category}\n` +
+      `🎫 القسيمة: ${data.coupon || 'لا يوجد'}\n` +
+      `⭐ التقييم: ${rating}/5.0 (${reviews} مراجعة)\n` +
+      `⏰ ينتهي في: 24 ساعة\n` +
+      `🚚 الشحن: ${newDeal.shipping || 'عادي'}\n\n` +
+      `🔗 روابط العرض:\n` +
+      `📱 الصفحة الرئيسية: ${dealUrl}\n` +
+      `🔄 رابط التوجيه: ${redirectUrl}\n` +
+      `🔧 API: ${apiUrl}\n\n` +
+      `🛠️ للتحكم في العرض:\n` +
+      `• للتعديل: استخدم "✏️ Change Deal" مع المعرف "${dealId}"\n` +
+      `• للحذف: استخدم "🗑️ Delete Deal" مع المعرف "${dealId}"`;
+
+    // Send success message
+    await bot.sendMessage(chatId, successMessage, { 
+      reply_markup: adminKeyboard,
+      parse_mode: 'HTML'
+    });
+
+    // Log successful creation
+    console.log(`🎉 Deal "${data.name}" (${dealId}) created successfully by admin ${userId}`);
+    console.log(`🔗 Deal accessible at: ${dealUrl}`);
+    console.log(`🛍️ Amazon redirect: ${data.amazonUrl}`);
+
+    // Optional: Send a preview of the deal (if you want to show how it looks)
+    try {
+      const previewMessage = `📋 معاينة العرض:\n\n` +
+        `🛍️ ${newDeal.title}\n` +
+        `💰 ${newDeal.price}€ ⚡ بدلاً من ${newDeal.oldPrice}€\n` +
+        `🔥 توفير ${savingsPercent}% • ${badge}\n` +
+        `⭐ ${newDeal.rating}/5 (${newDeal.reviews} مراجعة)\n` +
+        `📦 ${newDeal.category} • ${newDeal.availability}\n` +
+        `${newDeal.coupon ? `🎫 كود الخصم: ${newDeal.coupon}\n` : ''}` +
+        `${newDeal.shipping ? `🚚 ${newDeal.shipping}\n` : ''}` +
+        `⏰ ينتهي خلال 24 ساعة`;
+
+      await bot.sendMessage(chatId, previewMessage);
+    } catch (previewError) {
+      console.warn('⚠️ Could not send preview message:', previewError.message);
+    }
 
   } catch (error) {
     console.error("❌ Error completing deal add:", error);
-    bot.sendMessage(chatId, `❌ حدث خطأ أثناء حفظ العرض: ${error.message}. يرجى المحاولة مرة أخرى.`);
+    
+    // Clean up session on error
     userSessions.delete(userId);
+    
+    // Send detailed error message
+    let errorMessage = "❌ حدث خطأ أثناء حفظ العرض:\n\n";
+    
+    if (error.message.includes('Validation failed')) {
+      errorMessage += `🔍 خطأ في التحقق من البيانات:\n${error.message.replace('Validation failed: ', '')}`;
+    } else if (error.message.includes('ENOENT') || error.message.includes('permission')) {
+      errorMessage += "💾 خطأ في حفظ الملف. تحقق من الصلاحيات.";
+    } else if (error.message.includes('network') || error.message.includes('timeout')) {
+      errorMessage += "🌐 خطأ في الاتصال. يرجى المحاولة مرة أخرى.";
+    } else {
+      errorMessage += `⚠️ ${error.message}`;
+    }
+    
+    errorMessage += "\n\nيرجى المحاولة مرة أخرى أو الاتصال بالدعم الفني.";
+    
+    await bot.sendMessage(chatId, errorMessage, { reply_markup: adminKeyboard });
   }
 }
-
 async function startDeleteDeal(chatId, userId) {
   if (deals.length === 0) {
 bot.sendMessage(chatId, "❌ لا توجد عروض متاحة للحذف.", {
