@@ -12,6 +12,7 @@
     "node": ">=18.x"
   },
   "dependencies": {
+    "firebase-admin": "^11.11.0",
     "axios": "^1.6.7",
     "dotenv": "^16.0.3",
     "express": "^4.18.2",
