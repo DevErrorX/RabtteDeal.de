@@ -33,7 +33,18 @@ admin.initializeApp({
 const db = admin.database();
 const dealsRef = db.ref('deals');
 
-const requiredEnvVars = ['BOT_TOKEN', 'ADMIN_IDS', 'WEBHOOK_SECRET'];
+const requiredEnvVars = [
+  'BOT_TOKEN', 
+  'ADMIN_IDS', 
+  'WEBHOOK_SECRET',
+  'FIREBASE_PROJECT_ID',
+  'FIREBASE_PRIVATE_KEY_ID', 
+  'FIREBASE_PRIVATE_KEY',
+  'FIREBASE_CLIENT_EMAIL',
+  'FIREBASE_CLIENT_ID',
+  'FIREBASE_DATABASE_URL'
+];
+
 for (const envVar of requiredEnvVars) {
   if (!process.env[envVar]) {
     console.error(`❌ Missing required environment variable: ${envVar}`);
