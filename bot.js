@@ -12,23 +12,96 @@ const axios = require('axios');
 require('dotenv').config();
 const admin = require("firebase-admin");
 
-const serviceAccount = {
-  type: "service_account",
-  project_id: process.env.FIREBASE_PROJECT_ID,
-  private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID,
-  private_key: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-  client_email: process.env.FIREBASE_CLIENT_EMAIL,
-  client_id: process.env.FIREBASE_CLIENT_ID,
-  auth_uri: process.env.FIREBASE_AUTH_URI || "https://accounts.google.com/o/oauth2/auth",
-  token_uri: process.env.FIREBASE_TOKEN_URI || "https://oauth2.googleapis.com/token",
-  auth_provider_x509_cert_url: `https://www.googleapis.com/oauth2/v1/certs`,
-  client_x509_cert_url: `https://www.googleapis.com/robot/v1/metadata/x509/${encodeURIComponent(process.env.FIREBASE_CLIENT_EMAIL)}`
-};
+// Function to properly format the private key
+function formatPrivateKey(key) {
+  if (!key) {
+    throw new Error('Private key is missing');
+  }
+  
+  // Remove extra quotes and spaces
+  let cleanKey = key.replace(/^["']|["']$/g, '').trim();
+  
+  // Replace literal \n with actual newlines
+  cleanKey = cleanKey.replace(/\\n/g, '\n');
+  
+  // Ensure proper formatting
+  if (!cleanKey.includes('\n')) {
+    // If no newlines, it might be base64 encoded or improperly formatted
+    console.error('❌ Private key appears to be improperly formatted');
+    throw new Error('Private key must contain proper line breaks');
+  }
+  
+  // Ensure it starts and ends correctly
+  if (!cleanKey.startsWith('-----BEGIN PRIVATE KEY-----')) {
+    console.error('❌ Private key missing BEGIN header');
+    throw new Error('Invalid private key format');
+  }
+  
+  if (!cleanKey.endsWith('-----END PRIVATE KEY-----')) {
+    console.error('❌ Private key missing END footer');
+    throw new Error('Invalid private key format');
+  }
+  
+  return cleanKey;
+}
 
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
-  databaseURL: process.env.FIREBASE_DATABASE_URL || "https://rabattedealde-23a0d-default-rtdb.firebaseio.com"
-});
+// Validate required Firebase environment variables
+const requiredFirebaseVars = [
+  'FIREBASE_PROJECT_ID',
+  'FIREBASE_PRIVATE_KEY_ID', 
+  'FIREBASE_PRIVATE_KEY',
+  'FIREBASE_CLIENT_EMAIL',
+  'FIREBASE_CLIENT_ID',
+  'FIREBASE_DATABASE_URL'
+];
+
+console.log('🔍 Checking Firebase environment variables...');
+for (const envVar of requiredFirebaseVars) {
+  if (!process.env[envVar]) {
+    console.error(`❌ Missing required Firebase environment variable: ${envVar}`);
+    process.exit(1);
+  }
+}
+console.log('✅ All Firebase environment variables present');
+
+// Create service account object from environment variables
+let serviceAccount;
+try {
+  const formattedPrivateKey = formatPrivateKey(process.env.FIREBASE_PRIVATE_KEY);
+  
+  serviceAccount = {
+    type: "service_account",
+    project_id: process.env.FIREBASE_PROJECT_ID,
+    private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID,
+    private_key: formattedPrivateKey,
+    client_email: process.env.FIREBASE_CLIENT_EMAIL,
+    client_id: process.env.FIREBASE_CLIENT_ID,
+    auth_uri: "https://accounts.google.com/o/oauth2/auth",
+    token_uri: "https://oauth2.googleapis.com/token",
+    auth_provider_x509_cert_url: "https://www.googleapis.com/oauth2/v1/certs",
+    client_x509_cert_url: `https://www.googleapis.com/robot/v1/metadata/x509/${encodeURIComponent(process.env.FIREBASE_CLIENT_EMAIL)}`
+  };
+  
+  console.log('✅ Service account object created successfully');
+  console.log(`📧 Client Email: ${serviceAccount.client_email}`);
+  console.log(`🆔 Project ID: ${serviceAccount.project_id}`);
+  
+} catch (error) {
+  console.error('❌ Error creating service account:', error.message);
+  process.exit(1);
+}
+
+// Initialize Firebase
+try {
+  admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount),
+    databaseURL: process.env.FIREBASE_DATABASE_URL
+  });
+  console.log('✅ Firebase Admin SDK initialized successfully');
+} catch (error) {
+  console.error('❌ Firebase initialization failed:', error.message);
+  process.exit(1);
+}
 
 const db = admin.database();
 const dealsRef = db.ref('deals');
