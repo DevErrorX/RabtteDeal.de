@@ -10,6 +10,16 @@ const xss = require("xss");
 const validator = require("validator");
 const axios = require('axios');
 require('dotenv').config();
+const admin = require("firebase-admin");
+const serviceAccount = require("./serviceAccountKey.json"); // Path to your Firebase service account key
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+  databaseURL: "https://rabattedealde-23a0d-default-rtdb.firebaseio.com"
+});
+
+const db = admin.database();
+const dealsRef = db.ref('deals');
 
 const requiredEnvVars = ['BOT_TOKEN', 'ADMIN_IDS', 'WEBHOOK_SECRET'];
 for (const envVar of requiredEnvVars) {
@@ -493,12 +503,12 @@ function generateCloudflareRay() {
 
 async function loadDeals() {
   try {
-    const data = await fs.readFile(path.join(__dirname, 'private', 'deals.json'), "utf8");
-    const loadedDeals = JSON.parse(data);
+    const snapshot = await dealsRef.once('value');
+    const loadedDeals = snapshot.val() || {};
     
-    deals = loadedDeals.filter(deal => {
+    deals = Object.values(loadedDeals).filter(deal => {
       try {
-        return deal.id && 
+        return deal && deal.id && 
                deal.title && 
                deal.description &&
                deal.price > 0 &&
@@ -516,13 +526,12 @@ async function loadDeals() {
       category: InputValidator.sanitizeText(deal.category, 50).toLowerCase()
     }));
     
-    console.log(`✅ Loaded ${deals.length} valid deals`);
+    console.log(`✅ Loaded ${deals.length} valid deals from Firebase`);
   } catch (error) {
-    console.log("⚠️ No existing deals file found or invalid format, starting with empty array");
+    console.error("❌ Error loading deals from Firebase:", error);
     deals = [];
   }
 }
-
 async function saveDeals() {
   try {
     const validDeals = deals.filter(deal => {
@@ -542,11 +551,15 @@ async function saveDeals() {
       console.warn(`⚠️ Removed ${deals.length - validDeals.length} invalid deals during save`);
       deals = validDeals;
     }
+    const dealsObj = {};
+    deals.forEach(deal => {
+      dealsObj[deal.id] = deal;
+    });
     
-    const dealsData = JSON.stringify(deals, null, 2);
-await fs.writeFile("C:\\ali\\front-end web\\MY PROJECTS\\RabatteDealDe\\RabtteDeal.de-main\\private\\deals.json", dealsData, { mode: 0o600 });    console.log(`💾 Saved ${deals.length} deals securely`);
+    await dealsRef.set(dealsObj);
+    console.log(`💾 Saved ${deals.length} deals to Firebase`);
   } catch (error) {
-    console.error("❌ Error saving deals:", error);
+    console.error("❌ Error saving deals to Firebase:", error);
     throw error;
   }
 }
@@ -914,49 +927,78 @@ async function completeDealAdd(chatId, userId, data) {
       hasImageInfo: !!data.imageInfo
     });
 
+    // Validate all deal data
     const validationErrors = InputValidator.validateDealData(data);
     if (validationErrors.length > 0) {
       console.error('❌ Validation failed:', validationErrors);
       throw new Error(`Validation failed: ${validationErrors.join(', ')}`);
     }
 
+    // Generate unique deal ID and slug
     const dealId = generateDealId();
     const slug = generateSlug(data.name);
     
+    // Calculate discount percentage
     const discount = Math.round(
       ((data.originalPrice - data.dealPrice) / data.originalPrice) * 100
     );
 
+    // Determine badge based on discount
     const badge = discount >= 70 ? "HOT" : discount >= 50 ? "FIRE" : discount >= 30 ? "DEAL" : "SAVE";
 
+    // Set expiration time (24 hours from now)
     const expirationTime = Date.now() + (24 * 60 * 60 * 1000);
 
-    const rating = (Math.random() * 1.5 + 3.5).toFixed(1); 
-    const reviews = Math.floor(Math.random() * 2000) + 100; 
+    // Generate random but realistic ratings and reviews
+    const rating = (Math.random() * 1.5 + 3.5).toFixed(1); // 3.5 to 5.0
+    const reviews = Math.floor(Math.random() * 2000) + 100; // 100 to 2100 reviews
+
+    // Create the complete deal object
     const newDeal = {
+      // Basic identifiers
       id: dealId,
       slug: slug,
+      
+      // Deal information
       title: data.name.trim(),
       description: data.description.trim(),
+      
+      // Pricing
       price: parseFloat(data.dealPrice),
       oldPrice: parseFloat(data.originalPrice),
       discount: discount,
+      
+      // Classification
       category: data.category.toLowerCase(),
+      
+      // URLs and media
       amazonUrl: data.amazonUrl,
       imageUrl: `/secure-image/${dealId}`,
       imageInfo: data.imageInfo || null,
+      
+      // Additional features
       coupon: data.coupon && data.coupon.trim() ? data.coupon.trim() : null,
+      
+      // Social proof
       rating: parseFloat(rating),
       reviews: reviews,
+      
+      // Status and timing
       timer: expirationTime,
       badge: badge,
       isActive: true,
       isFeatured: discount >= 60,
+      
+      // Metadata
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       createdBy: userId,
+      
+      // SEO and tracking
       views: 0,
       clicks: 0,
+      
+      // Additional fields for frontend
       currency: "EUR",
       availability: "In Stock",
       shipping: discount >= 50 ? "Free Shipping" : null
@@ -971,53 +1013,65 @@ async function completeDealAdd(chatId, userId, data) {
       hasImageInfo: !!newDeal.imageInfo,
       expiresAt: new Date(newDeal.timer).toISOString()
     });
-    deals.push(newDeal);
-    await saveDeals();
-    console.log(`💾 Deal saved successfully. Total deals: ${deals.length}`);
+
+    // Save deal to Firebase
+    await dealsRef.child(dealId).set(newDeal);
+    console.log(`💾 Deal saved to Firebase successfully.`);
+    
+    // Clean up user session
     userSessions.delete(userId);
+
+    // Generate deal URLs
     const dealUrl = `${WEBSITE_URL}/deal/${slug}`;
     const redirectUrl = `${WEBSITE_URL}/redirect/${dealId}`;
     const apiUrl = `${WEBSITE_URL}/api/deal/${slug}`;
+
+    // Calculate savings
     const savings = (data.originalPrice - data.dealPrice).toFixed(2);
     const savingsPercent = discount;
-    const successMessage = `✅ تم إضافة العرض بنجاح!\n\n` +
-      `🆔 معرف العرض: ${dealId}\n` +
-      `📝 الاسم: ${data.name}\n` +
-      `💰 السعر: €${data.dealPrice} (كان €${data.originalPrice})\n` +
-      `💵 التوفير: €${savings} (${savingsPercent}%)\n` +
-      `🏷️ الشارة: ${badge}\n` +
-      `📂 التصنيف: ${data.category}\n` +
-      `🎫 القسيمة: ${data.coupon || 'لا يوجد'}\n` +
-      `⭐ التقييم: ${rating}/5.0 (${reviews} مراجعة)\n` +
-      `⏰ ينتهي في: 24 ساعة\n` +
-      `🚚 الشحن: ${newDeal.shipping || 'عادي'}\n\n` +
-      `🔗 روابط العرض:\n` +
-      `📱 الصفحة الرئيسية: ${dealUrl}\n` +
-      `🔄 رابط التوجيه: ${redirectUrl}\n` +
-      `🔧 API: ${apiUrl}\n\n` +
-      `🛠️ للتحكم في العرض:\n` +
-      `• للتعديل: استخدم "✏️ Change Deal" مع المعرف "${dealId}"\n` +
-      `• للحذف: استخدم "🗑️ Delete Deal" مع المعرف "${dealId}"`;
 
+    // Create success message
+    const successMessage = `✅ Deal added successfully!\n\n` +
+      `🆔 Deal ID: ${dealId}\n` +
+      `📝 Name: ${data.name}\n` +
+      `💰 Price: €${data.dealPrice} (was €${data.originalPrice})\n` +
+      `💵 Savings: €${savings} (${savingsPercent}%)\n` +
+      `🏷️ Badge: ${badge}\n` +
+      `📂 Category: ${data.category}\n` +
+      `🎫 Coupon: ${data.coupon || 'None'}\n` +
+      `⭐ Rating: ${rating}/5.0 (${reviews} reviews)\n` +
+      `⏰ Expires in: 24 hours\n` +
+      `🚚 Shipping: ${newDeal.shipping || 'Standard'}\n\n` +
+      `🔗 Deal Links:\n` +
+      `📱 Homepage: ${dealUrl}\n` +
+      `🔄 Redirect: ${redirectUrl}\n` +
+      `🔧 API: ${apiUrl}\n\n` +
+      `🛠️ To manage this deal:\n` +
+      `• To edit: Use "✏️ Change Deal" with ID "${dealId}"\n` +
+      `• To delete: Use "🗑️ Delete Deal" with ID "${dealId}"`;
+
+    // Send success message
     await bot.sendMessage(chatId, successMessage, { 
       reply_markup: adminKeyboard,
       parse_mode: 'HTML'
     });
 
+    // Log successful creation
     console.log(`🎉 Deal "${data.name}" (${dealId}) created successfully by admin ${userId}`);
     console.log(`🔗 Deal accessible at: ${dealUrl}`);
     console.log(`🛍️ Amazon redirect: ${data.amazonUrl}`);
 
+    // Optional: Send a preview of the deal (if you want to show how it looks)
     try {
-      const previewMessage = `📋 معاينة العرض:\n\n` +
+      const previewMessage = `📋 Deal Preview:\n\n` +
         `🛍️ ${newDeal.title}\n` +
-        `💰 ${newDeal.price}€ ⚡ بدلاً من ${newDeal.oldPrice}€\n` +
-        `🔥 توفير ${savingsPercent}% • ${badge}\n` +
-        `⭐ ${newDeal.rating}/5 (${newDeal.reviews} مراجعة)\n` +
+        `💰 ${newDeal.price}€ ⚡ Instead of ${newDeal.oldPrice}€\n` +
+        `🔥 Save ${savingsPercent}% • ${badge}\n` +
+        `⭐ ${newDeal.rating}/5 (${newDeal.reviews} reviews)\n` +
         `📦 ${newDeal.category} • ${newDeal.availability}\n` +
-        `${newDeal.coupon ? `🎫 كود الخصم: ${newDeal.coupon}\n` : ''}` +
+        `${newDeal.coupon ? `🎫 Coupon Code: ${newDeal.coupon}\n` : ''}` +
         `${newDeal.shipping ? `🚚 ${newDeal.shipping}\n` : ''}` +
-        `⏰ ينتهي خلال 24 ساعة`;
+        `⏰ Expires in 24 hours`;
 
       await bot.sendMessage(chatId, previewMessage);
     } catch (previewError) {
@@ -1027,50 +1081,97 @@ async function completeDealAdd(chatId, userId, data) {
   } catch (error) {
     console.error("❌ Error completing deal add:", error);
     
+    // Clean up session on error
     userSessions.delete(userId);
     
-    let errorMessage = "❌ حدث خطأ أثناء حفظ العرض:\n\n";
+    // Send detailed error message
+    let errorMessage = "❌ Error saving deal:\n\n";
     
     if (error.message.includes('Validation failed')) {
-      errorMessage += `🔍 خطأ في التحقق من البيانات:\n${error.message.replace('Validation failed: ', '')}`;
-    } else if (error.message.includes('ENOENT') || error.message.includes('permission')) {
-      errorMessage += "💾 خطأ في حفظ الملف. تحقق من الصلاحيات.";
+      errorMessage += `🔍 Data validation error:\n${error.message.replace('Validation failed: ', '')}`;
+    } else if (error.message.includes('permission')) {
+      errorMessage += "🔒 Firebase permission denied. Check your rules.";
     } else if (error.message.includes('network') || error.message.includes('timeout')) {
-      errorMessage += "🌐 خطأ في الاتصال. يرجى المحاولة مرة أخرى.";
+      errorMessage += "🌐 Network error. Please try again.";
     } else {
       errorMessage += `⚠️ ${error.message}`;
     }
     
-    errorMessage += "\n\nيرجى المحاولة مرة أخرى أو الاتصال بالدعم الفني.";
+    errorMessage += "\n\nPlease try again or contact support.";
     
     await bot.sendMessage(chatId, errorMessage, { reply_markup: adminKeyboard });
   }
 }
+
 async function startDeleteDeal(chatId, userId) {
-  if (deals.length === 0) {
-bot.sendMessage(chatId, "❌ لا توجد عروض متاحة للحذف.", {
-      reply_markup: adminKeyboard,
+  try {
+    const snapshot = await dealsRef.once('value');
+    const allDeals = snapshot.val() || {};
+    const dealsArray = Object.values(allDeals);
+    
+    if (dealsArray.length === 0) {
+      bot.sendMessage(chatId, "❌ No deals available to delete.", {
+        reply_markup: adminKeyboard,
+      });
+      return;
+    }
+
+    const session = createSecureSession(userId, "delete_deal");
+    session.step = "select_id";
+    userSessions.set(userId, session);
+
+    let dealsList = "🗑️ Select a deal to delete:\n\n";
+    const activeDeals = dealsArray.filter(deal => deal.timer > Date.now()).slice(0, 10);
+    
+    activeDeals.forEach((deal) => {
+      dealsList += `🆔 ${deal.id}\n📝 ${deal.title.substring(0, 50)}...\n💰 €${deal.price}\n\n`;
     });
+
+    if (dealsArray.length > 10) {
+      dealsList += `... and ${dealsArray.length - 10} more deals\n\n`;
+    }
+
+    dealsList += "Enter the Deal ID to delete:";
+    bot.sendMessage(chatId, dealsList);
+  } catch (error) {
+    console.error("❌ Error starting deal deletion:", error);
+    bot.sendMessage(chatId, "❌ Error loading deals.", { reply_markup: adminKeyboard });
+  }
+}
+
+async function handleDeleteDealSession(chatId, userId, text, session) {
+  const dealId = InputValidator.sanitizeText(text, 50).trim();
+  
+  if (!/^[0-9a-f]{8,}$/i.test(dealId)) {
+    bot.sendMessage(chatId, "❌ Invalid deal ID format. Please enter a valid deal ID:");
     return;
   }
-
-  const session = createSecureSession(userId, "delete_deal");
-  session.step = "select_id";
-  userSessions.set(userId, session);
-
-  let dealsList = "🗑️ Select a deal to delete:\n\n";
-  const activeDeals = deals.filter(deal => deal.timer > Date.now()).slice(0, 10);
   
-  activeDeals.forEach((deal) => {
-    dealsList += `🆔 ${deal.id}\n📝 ${deal.title.substring(0, 50)}...\n💰 €${deal.price}\n\n`;
-  });
+  try {
+    const snapshot = await dealsRef.child(dealId).once('value');
+    const deal = snapshot.val();
 
-  if (deals.length > 10) {
-    dealsList += `... and ${deals.length - 10} more deals\n\n`;
+    if (!deal) {
+      bot.sendMessage(chatId, "❌ Deal not found. Please enter a valid deal ID:");
+      return;
+    }
+
+    await dealsRef.child(dealId).remove();
+    userSessions.delete(userId);
+
+    bot.sendMessage(
+      chatId,
+      `✅ Deal deleted successfully!\n\n` +
+      `🆔 Deleted Deal ID: ${dealId}\n` +
+      `📝 Name: ${deal.title}`,
+      { reply_markup: adminKeyboard }
+    );
+
+    console.log(`🗑️ Deal deleted by admin ${userId}: ${dealId}`);
+  } catch (error) {
+    console.error("❌ Error deleting deal:", error);
+    bot.sendMessage(chatId, "❌ Error deleting deal.", { reply_markup: adminKeyboard });
   }
-
-  dealsList += "Enter the Deal ID to delete:";
-  bot.sendMessage(chatId, dealsList);
 }
 
 async function handleDeleteDealSession(chatId, userId, text, session) {
@@ -1130,43 +1231,48 @@ async function startChangeDeal(chatId, userId) {
   bot.sendMessage(chatId, dealsList);
 }
 
-
 async function handleChangeDealSession(chatId, userId, text, session) {
  if (session.step === "select_id") {
    const dealId = InputValidator.sanitizeText(text, 50).trim();
    
    if (!/^[0-9a-f]{8,}$/i.test(dealId)) {
-     bot.sendMessage(chatId, "❌ صيغة معرف العرض غير صحيحة. يرجى إدخال معرف عرض صالح:");
+     bot.sendMessage(chatId, "❌ Invalid deal ID format. Please enter a valid deal ID:");
      return;
    }
-const deal = deals.find((d) => d.id === dealId);
 
-if (!deal) {
-  bot.sendMessage(chatId, "❌ لم يتم العثور على العرض. يرجى إدخال معرف عرض صالح:");
-  return;
-}
+   try {
+     const snapshot = await dealsRef.child(dealId).once('value');
+     const deal = snapshot.val();
 
+     if (!deal) {
+       bot.sendMessage(chatId, "❌ Deal not found. Please enter a valid deal ID:");
+       return;
+     }
 
-   session.dealId = dealId;
-   session.step = "select_field";
-   userSessions.set(userId, session);
+     session.dealId = dealId;
+     session.step = "select_field";
+     userSessions.set(userId, session);
 
-   const fieldKeyboard = {
-     keyboard: [
-       [{ text: "Name" }, { text: "Description" }],
-       [{ text: "Price" }, { text: "Original Price" }],
-       [{ text: "Category" }, { text: "Amazon URL" }],
-       [{ text: "❌ Cancel" }],
-     ],
-     resize_keyboard: true,
-     one_time_keyboard: true,
-   };
+     const fieldKeyboard = {
+       keyboard: [
+         [{ text: "Name" }, { text: "Description" }],
+         [{ text: "Price" }, { text: "Original Price" }],
+         [{ text: "Category" }, { text: "Amazon URL" }],
+         [{ text: "❌ Cancel" }],
+       ],
+       resize_keyboard: true,
+       one_time_keyboard: true,
+     };
 
-   bot.sendMessage(
-     chatId,
-`✏️ تعديل العرض: ${deal.title}\n\nأي حقل تريد تغييره؟`,
-     { reply_markup: fieldKeyboard }
-   );
+     bot.sendMessage(
+       chatId,
+       `✏️ Editing deal: ${deal.title}\n\nWhich field would you like to change?`,
+       { reply_markup: fieldKeyboard }
+     );
+   } catch (error) {
+     console.error("❌ Error fetching deal:", error);
+     bot.sendMessage(chatId, "❌ Error loading deal information.", { reply_markup: adminKeyboard });
+   }
  } else if (session.step === "select_field") {
    const field = InputValidator.sanitizeText(text, 20).toLowerCase();
    session.field = field;
@@ -1186,129 +1292,141 @@ if (!deal) {
 
    bot.sendMessage(chatId, prompt);
  } else if (session.step === "enter_value") {
-   const deal = deals.find((d) => d.id === session.dealId);
-   const field = session.field;
-   let updateValue = text;
-   let isValid = true;
-   let errorMessage = "";
-
-   switch (field) {
-     case "name":{
-       updateValue = InputValidator.sanitizeText(text, 100);
-       if (updateValue.length < 5 || updateValue.length > 100) {
-         isValid = false;
-         errorMessage = "Name must be 5-100 characters long";
-       } else {
-         deal.title = updateValue;
-         deal.slug = generateSlug(updateValue);
-       }
-       break;}
-       
-     case "description":{
-       updateValue = InputValidator.sanitizeText(text, 500);
-       if (updateValue.length < 10 || updateValue.length > 500) {
-         isValid = false;
-         errorMessage = "Description must be 10-500 characters long";
-       } else {
-         deal.description = updateValue;
-       }
-       break;}
-       
-     case "price":{
-       if (!InputValidator.validatePrice(text)) {
-         isValid = false;
-         errorMessage = "Please enter a valid price (0.01 - 99999.99)";
-       } else {
-         const newPrice = parseFloat(text);
-         if (newPrice >= deal.oldPrice) {
-           isValid = false;
-           errorMessage = "Deal price must be lower than original price";
-         } else {
-           deal.price = newPrice;
-         }
-       }
-       break;}
-       
-     case "original price":{
-       if (!InputValidator.validatePrice(text)) {
-         isValid = false;
-         errorMessage = "Please enter a valid price (0.01 - 99999.99)";
-       } else {
-         const newOriginalPrice = parseFloat(text);
-         if (newOriginalPrice <= deal.price) {
-           isValid = false;
-           errorMessage = "Original price must be higher than deal price";
-         } else {
-           deal.oldPrice = newOriginalPrice;
-         }
-       }
-       break;}
-       
-     case "category":{
-    const category = InputValidator.sanitizeText(text, 50).toLowerCase();
-    const validCategories = [
-        'elektronik', 'bücher', 'games', 'spielzeug', 'küche', 'Haushalt',
-        'lebensmittel', 'drogerie', 'fashion', 'sport', 'auto', 
-        'haustier', 'büro', 'multimedia', 'computer', 'gesundheit', 
-        'werkzeuge', 'garten', 'musik', 'software'
-    ];
-    
-    if (!validCategories.includes(category)) {
-        isValid = false;
-        errorMessage = "Please enter a valid category: " + validCategories.join(', ');
-    } else {
-        deal.category = category;
-    }
-    break;}
-       
-     case "amazon url":{
-       if (!InputValidator.validateURL(text)) {
-         isValid = false;
-         errorMessage = "Please enter a valid HTTPS Amazon URL";
-       } else {
-         deal.amazonUrl = text;
-       }
-       break;}
-       
-     default:
-       isValid = false;
-       errorMessage = "Invalid field selected";
-   }
-
-   if (!isValid) {
-     bot.sendMessage(chatId, `❌ ${errorMessage}:`);
-     return;
-   }
-
-   if (field === "price" || field === "original price") {
-     deal.discount = Math.round(
-       ((deal.oldPrice - deal.price) / deal.oldPrice) * 100
-     );
-     deal.badge = deal.discount > 50 ? "HOT" : "DEAL";
-   }
-
    try {
-     await saveDeals();
+     const dealId = session.dealId;
+     const snapshot = await dealsRef.child(dealId).once('value');
+     const deal = snapshot.val();
+     
+     if (!deal) {
+       bot.sendMessage(chatId, "❌ Deal no longer exists.", { reply_markup: adminKeyboard });
+       userSessions.delete(userId);
+       return;
+     }
+
+     const field = session.field;
+     let updateValue = text;
+     let isValid = true;
+     let errorMessage = "";
+     const updates = {};
+
+     switch (field) {
+       case "name":{
+         updateValue = InputValidator.sanitizeText(text, 100);
+         if (updateValue.length < 5 || updateValue.length > 100) {
+           isValid = false;
+           errorMessage = "Name must be 5-100 characters long";
+         } else {
+           updates.title = updateValue;
+           updates.slug = generateSlug(updateValue);
+         }
+         break;}
+         
+       case "description":{
+         updateValue = InputValidator.sanitizeText(text, 500);
+         if (updateValue.length < 10 || updateValue.length > 500) {
+           isValid = false;
+           errorMessage = "Description must be 10-500 characters long";
+         } else {
+           updates.description = updateValue;
+         }
+         break;}
+         
+       case "price":{
+         if (!InputValidator.validatePrice(text)) {
+           isValid = false;
+           errorMessage = "Please enter a valid price (0.01 - 99999.99)";
+         } else {
+           const newPrice = parseFloat(text);
+           if (newPrice >= deal.oldPrice) {
+             isValid = false;
+             errorMessage = "Deal price must be lower than original price";
+           } else {
+             updates.price = newPrice;
+           }
+         }
+         break;}
+         
+       case "original price":{
+         if (!InputValidator.validatePrice(text)) {
+           isValid = false;
+           errorMessage = "Please enter a valid price (0.01 - 99999.99)";
+         } else {
+           const newOriginalPrice = parseFloat(text);
+           if (newOriginalPrice <= deal.price) {
+             isValid = false;
+             errorMessage = "Original price must be higher than deal price";
+           } else {
+             updates.oldPrice = newOriginalPrice;
+           }
+         }
+         break;}
+         
+       case "category":{
+         const category = InputValidator.sanitizeText(text, 50).toLowerCase();
+         const validCategories = [
+             'elektronik', 'bücher', 'games', 'spielzeug', 'küche', 'Haushalt',
+             'lebensmittel', 'drogerie', 'fashion', 'sport', 'auto', 
+             'haustier', 'büro', 'multimedia', 'computer', 'gesundheit', 
+             'werkzeuge', 'garten', 'musik', 'software'
+         ];
+         
+         if (!validCategories.includes(category)) {
+             isValid = false;
+             errorMessage = "Please enter a valid category: " + validCategories.join(', ');
+         } else {
+             updates.category = category;
+         }
+         break;}
+         
+       case "amazon url":{
+         if (!InputValidator.validateURL(text)) {
+           isValid = false;
+           errorMessage = "Please enter a valid HTTPS Amazon URL";
+         } else {
+           updates.amazonUrl = text;
+         }
+         break;}
+         
+       default:
+         isValid = false;
+         errorMessage = "Invalid field selected";
+     }
+
+     if (!isValid) {
+       bot.sendMessage(chatId, `❌ ${errorMessage}:`);
+       return;
+     }
+
+     if (field === "price" || field === "original price") {
+       const newPrice = updates.price || deal.price;
+       const newOriginalPrice = updates.oldPrice || deal.oldPrice;
+       updates.discount = Math.round(((newOriginalPrice - newPrice) / newOriginalPrice) * 100);
+       updates.badge = updates.discount > 50 ? "HOT" : "DEAL";
+     }
+
+     updates.updatedAt = new Date().toISOString();
+     
+     await dealsRef.child(dealId).update(updates);
      userSessions.delete(userId);
 
-     const dealUrl = `${WEBSITE_URL}/deal/${deal.slug}`;
+     const updatedDeal = { ...deal, ...updates };
+     const dealUrl = `${WEBSITE_URL}/deal/${updatedDeal.slug}`;
 
      bot.sendMessage(
        chatId,
-       `✅ تم تحديث العرض بنجاح!\n\n` +
-`🆔 معرف العرض: ${deal.id}\n` +
-`📝 الاسم: ${deal.title}\n` +
-`💰 السعر: €${deal.price} (كان €${deal.oldPrice})\n` +
-`🏷️ الخصم: ${deal.discount}%\n` +
-`📂 التصنيف: ${deal.category}\n\n` +
-`🔗 رابط العرض: ${dealUrl}`,
-
+       `✅ Deal updated successfully!\n\n` +
+       `🆔 Deal ID: ${dealId}\n` +
+       `📝 Name: ${updatedDeal.title}\n` +
+       `💰 Price: €${updatedDeal.price} (was €${updatedDeal.oldPrice})\n` +
+       `🏷️ Discount: ${updatedDeal.discount}%\n` +
+       `📂 Category: ${updatedDeal.category}\n\n` +
+       `🔗 Deal URL: ${dealUrl}`,
        { reply_markup: adminKeyboard }
      );
 
    } catch (error) {
      console.error("❌ Error updating deal:", error);
-bot.sendMessage(chatId, `❌ حدث خطأ أثناء تحديث العرض: ${error.message}`);
+     bot.sendMessage(chatId, `❌ Error updating deal: ${error.message}`);
      userSessions.delete(userId);
    }
  }
@@ -1317,8 +1435,12 @@ bot.sendMessage(chatId, `❌ حدث خطأ أثناء تحديث العرض: ${e
 async function showStats(chatId) {
   try {
     const now = Date.now();
-    const activeDeals = deals.filter(deal => deal.timer > now);
-    const expiredDeals = deals.filter(deal => deal.timer <= now);
+    const snapshot = await dealsRef.once('value');
+    const allDeals = snapshot.val() || {};
+    const dealsArray = Object.values(allDeals);
+    
+    const activeDeals = dealsArray.filter(deal => deal.timer > now);
+    const expiredDeals = dealsArray.filter(deal => deal.timer <= now);
     
     const categories = {};
     activeDeals.forEach(deal => {
@@ -1360,16 +1482,20 @@ async function showStats(chatId) {
 
 async function listAllDeals(chatId) {
   try {
-    if (deals.length === 0) {
-bot.sendMessage(chatId, "❌ لا توجد عروض متاحة.", { reply_markup: adminKeyboard });
+    const snapshot = await dealsRef.once('value');
+    const allDeals = snapshot.val() || {};
+    const dealsArray = Object.values(allDeals);
+    
+    if (dealsArray.length === 0) {
+      bot.sendMessage(chatId, "❌ No deals available.", { reply_markup: adminKeyboard });
       return;
     }
 
     const now = Date.now();
-    const activeDeals = deals.filter(deal => deal.timer > now);
-    const expiredDeals = deals.filter(deal => deal.timer <= now);
+    const activeDeals = dealsArray.filter(deal => deal.timer > now);
+    const expiredDeals = dealsArray.filter(deal => deal.timer <= now);
 
-    let message = `📋 All Deals (${deals.length} total)\n\n`;
+    let message = `📋 All Deals (${dealsArray.length} total)\n\n`;
     
     if (activeDeals.length > 0) {
       message += `✅ Active Deals (${activeDeals.length}):\n`;
@@ -1404,6 +1530,7 @@ bot.sendMessage(chatId, "❌ لا توجد عروض متاحة.", { reply_markup
   }
 }
 
+
 async function handleStopWebsite(chatId) {
   try {
     if (serverProcess) {
@@ -1435,27 +1562,31 @@ async function handleRestartWebsite(chatId) {
     bot.sendMessage(chatId, "❌ Error restarting website.", { reply_markup: adminKeyboard });
   }
 }
-
-app.get('/api/deals', apiLimiter, (req, res) => {
+app.get('/api/deals', apiLimiter, async (req, res) => {
   try {
     const now = Date.now();
-    const activeDeals = deals.filter(deal => deal.timer > now).map(deal => ({
-      id: deal.id,
-      slug: deal.slug,
-      title: deal.title,
-      description: deal.description,
-      price: deal.price,
-      oldPrice: deal.oldPrice,
-      discount: deal.discount,
-      category: deal.category,
-      imageUrl: `/secure-image/${deal.id}`,
-      coupon: deal.coupon || null,
-      rating: deal.rating || 4.5,
-      reviews: deal.reviews || Math.floor(Math.random() * 1000) + 100,
-      timer: deal.timer,
-      badge: deal.badge || (deal.discount > 50 ? "HOT" : "DEAL"),
-      createdAt: deal.createdAt
-    }));
+    const snapshot = await dealsRef.once('value');
+    const allDeals = snapshot.val() || {};
+    
+    const activeDeals = Object.values(allDeals)
+      .filter(deal => deal.timer > now)
+      .map(deal => ({
+        id: deal.id,
+        slug: deal.slug,
+        title: deal.title,
+        description: deal.description,
+        price: deal.price,
+        oldPrice: deal.oldPrice,
+        discount: deal.discount,
+        category: deal.category,
+        imageUrl: `/secure-image/${deal.id}`,
+        coupon: deal.coupon || null,
+        rating: deal.rating || 4.5,
+        reviews: deal.reviews || Math.floor(Math.random() * 1000) + 100,
+        timer: deal.timer,
+        badge: deal.badge || (deal.discount > 50 ? "HOT" : "DEAL"),
+        createdAt: deal.createdAt
+      }));
     
     res.setHeader('Cache-Control', 'public, max-age=300'); 
     res.json(activeDeals);
@@ -1464,7 +1595,6 @@ app.get('/api/deals', apiLimiter, (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
-
 app.get('/redirect/:dealId', redirectLimiter, async (req, res) => {
   try {
     const dealId = InputValidator.sanitizeText(req.params.dealId, 50);
@@ -1476,7 +1606,8 @@ app.get('/redirect/:dealId', redirectLimiter, async (req, res) => {
       ));
     }
 
-    const deal = deals.find(d => d.id === dealId);
+    const snapshot = await dealsRef.child(dealId).once('value');
+    const deal = snapshot.val();
     
     if (!deal) {
       return res.status(404).send(generateErrorPage(
@@ -1513,7 +1644,6 @@ app.get('/redirect/:dealId', redirectLimiter, async (req, res) => {
     ));
   }
 });
-
 app.get('/deal/:slug', async (req, res) => {
   try {
     const slug = InputValidator.sanitizeText(req.params.slug, 100);
@@ -1525,19 +1655,24 @@ app.get('/deal/:slug', async (req, res) => {
       ));
     }
 
-    let deal = null;
+    const snapshot = await dealsRef.once('value');
+    const allDeals = snapshot.val() || {};
     
-    deal = deals.find(d => d.slug === slug);
+    let deal = Object.values(allDeals).find(d => d.slug === slug);
     
+    // If not found, try partial slug match
     if (!deal) {
-      deal = deals.find(d => slug.startsWith(d.slug) || d.slug.startsWith(slug));
+      deal = Object.values(allDeals).find(d => 
+        slug.startsWith(d.slug) || d.slug.startsWith(slug)
+      );
     }
     
+    // Last resort: check if slug contains a deal ID
     if (!deal) {
       const slugParts = slug.split('-');
       for (const part of slugParts) {
         if (/^[0-9a-f]{8,}$/i.test(part)) {
-          deal = deals.find(d => d.id === part);
+          deal = allDeals[part];
           if (deal) break;
         }
       }
@@ -1593,7 +1728,10 @@ app.get('/api/deal/:slug', apiLimiter, async (req, res) => {
       return res.status(400).json({ error: 'Invalid deal slug format' });
     }
 
-    const deal = deals.find(d => d.slug === slug);
+    const snapshot = await dealsRef.once('value');
+    const allDeals = snapshot.val() || {};
+    
+    const deal = Object.values(allDeals).find(d => d.slug === slug);
     
     if (!deal) {
       return res.status(404).json({ error: 'Deal not found' });
@@ -1627,6 +1765,7 @@ app.get('/api/deal/:slug', apiLimiter, async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
+
 
 app.use((req, res, next) => {
   const blockedFiles = [
@@ -1672,10 +1811,16 @@ app.get('/secure-image/:id', async (req, res) => {
   try {
     const requestedId = req.params.id;
     
-    let deal = deals.find(d => d.id === requestedId);
+    const snapshot = await dealsRef.child(requestedId).once('value');
+    let deal = snapshot.val();
     
     if (!deal) {
-      deal = deals.find(d => d.imageInfo && d.imageInfo.file_id === requestedId);
+      const allDealsSnapshot = await dealsRef.once('value');
+      const allDeals = allDealsSnapshot.val() || {};
+      
+      deal = Object.values(allDeals).find(d => 
+        d.imageInfo && d.imageInfo.file_id === requestedId
+      );
     }
     
     if (!deal) {
@@ -1720,7 +1865,7 @@ app.get('/secure-image/:id', async (req, res) => {
 
     return res.redirect('https://via.placeholder.com/300?text=Image+Not+Available');
     
-  } catch (error) {
+    } catch (error) {
     console.error('Image proxy error:', error);
     res.redirect('https://via.placeholder.com/300?text=Image+Not+Available');
   }
