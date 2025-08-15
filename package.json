@@ -25,8 +25,4 @@
   "devDependencies": {
     "nodemon": "^3.0.2"
   }
-  "scripts": {
-  "prestart": "sudo date -s \"$(wget -qSO- --max-redirect=0 google.com 2>&1 | grep Date: | cut -d' ' -f5-8)Z\" || true",
-  "start": "node bot.js"
-}
 }
