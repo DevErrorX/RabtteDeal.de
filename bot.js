@@ -12,7 +12,6 @@ const axios = require('axios');
 require('dotenv').config();
 const admin = require("firebase-admin");
 
-// Function to properly format the private key
 function formatPrivateKey(key) {
   if (!key) {
     throw new Error('Private key is missing');
@@ -21,31 +20,35 @@ function formatPrivateKey(key) {
   // Remove extra quotes and spaces
   let cleanKey = key.replace(/^["']|["']$/g, '').trim();
   
-  // Replace literal \n with actual newlines
-  cleanKey = cleanKey.replace(/\\n/g, '\n');
+  // Replace literal \n with actual newlines - handle both \\n and \n
+  cleanKey = cleanKey.replace(/\\\\n/g, '\n').replace(/\\n/g, '\n');
   
-  // Ensure proper formatting
+  // If the key is on a single line (base64-like), it might be encoded incorrectly
   if (!cleanKey.includes('\n')) {
-    // If no newlines, it might be base64 encoded or improperly formatted
-    console.error('❌ Private key appears to be improperly formatted');
-    throw new Error('Private key must contain proper line breaks');
+    // Check if it's a single-line key that needs proper formatting
+    if (cleanKey.includes('-----BEGIN PRIVATE KEY-----') && cleanKey.includes('-----END PRIVATE KEY-----')) {
+      // Extract the content between headers
+      const keyContent = cleanKey.replace('-----BEGIN PRIVATE KEY-----', '').replace('-----END PRIVATE KEY-----', '').trim();
+      // Reformat with proper headers and 64-character lines
+      const lines = keyContent.match(/.{1,64}/g) || [];
+      cleanKey = '-----BEGIN PRIVATE KEY-----\n' + lines.join('\n') + '\n-----END PRIVATE KEY-----';
+    } else {
+      throw new Error('Private key must contain proper line breaks');
+    }
   }
   
-  // Ensure it starts and ends correctly
+  // Ensure proper formatting
   if (!cleanKey.startsWith('-----BEGIN PRIVATE KEY-----')) {
-    console.error('❌ Private key missing BEGIN header');
-    throw new Error('Invalid private key format');
+    throw new Error('Invalid private key format - missing BEGIN header');
   }
   
   if (!cleanKey.endsWith('-----END PRIVATE KEY-----')) {
-    console.error('❌ Private key missing END footer');
-    throw new Error('Invalid private key format');
+    throw new Error('Invalid private key format - missing END footer');
   }
   
   return cleanKey;
 }
 
-// Validate required Firebase environment variables
 const requiredFirebaseVars = [
   'FIREBASE_PROJECT_ID',
   'FIREBASE_PRIVATE_KEY_ID', 
