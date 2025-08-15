@@ -11,16 +11,41 @@ const validator = require("validator");
 const axios = require('axios');
 require('dotenv').config();
 const admin = require("firebase-admin");
-const serviceAccount = require("./serviceAccountKey.json");
+let firebaseConfig;
 
-admin.initializeApp({
-  credential: admin.credential.cert({
-    projectId: serviceAccount.project_id,
-    clientEmail: serviceAccount.client_email,
-    privateKey: serviceAccount.private_key.replace(/\\n/g, '\n')
-  }),
-  databaseURL: "https://rabattedealde-23a0d-default-rtdb.firebaseio.com"
-});
+if (process.env.NODE_ENV === 'production' || process.env.RAILWAY_ENVIRONMENT) {
+  firebaseConfig = {
+    credential: admin.credential.cert({
+      projectId: process.env.FIREBASE_PROJECT_ID,
+      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+      privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n')
+    }),
+    databaseURL: process.env.FIREBASE_DATABASE_URL || "https://rabattedealde-23a0d-default-rtdb.firebaseio.com"
+  };
+} else {
+  try {
+    const serviceAccount = require("./serviceAccountKey.json");
+    firebaseConfig = {
+      credential: admin.credential.cert({
+        projectId: serviceAccount.project_id,
+        clientEmail: serviceAccount.client_email,
+        privateKey: serviceAccount.private_key.replace(/\\n/g, '\n')
+      }),
+      databaseURL: "https://rabattedealde-23a0d-default-rtdb.firebaseio.com"
+    };
+  } catch (error) {
+    console.error('❌ Could not load service account file for local development:', error);
+    process.exit(1);
+  }
+}
+
+try {
+  admin.initializeApp(firebaseConfig);
+  console.log('✅ Firebase initialized successfully');
+} catch (error) {
+  console.error('❌ Firebase initialization failed:', error);
+  process.exit(1);
+}
 
 const db = admin.database();
 const dealsRef = db.ref("deals");
