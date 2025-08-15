@@ -327,11 +327,12 @@ static validateImageURL(url) {
     }
   
 const validCategories = [
-        'elektronik', 'bücher', 'games', 'spielzeug', 'küche', 'Haushalt',
-        'lebensmittel', 'drogerie', 'fashion', 'sport', 'auto', 
-        'haustier', 'büro', 'multimedia', 'computer', 'gesundheit', 
-        'werkzeuge', 'garten', 'musik', 'software'
-    ];
+    'fashion', 'uhren', 'baumarkt', 'haushalt', 'kosmetik', 
+    'küche', 'schmuck', 'musik', 'möbel', 'auto', 
+    'bücher', 'sport', 'büro', 'baby', 'computer', 
+    'elektronik', 'haustier', 'kamera', 'spielwaren', 
+    'garten', 'lebensmittel', 'videospiele', 'gutscheine'
+];
 
 if (!data.category || !validCategories.includes(data.category.toLowerCase())) {
     errors.push('Invalid category');
@@ -878,12 +879,12 @@ bot.sendMessage(chatId, "✅ تم حفظ سعر العرض!\n\nهل لديك ر�
       session.step = "category";
       userSessions.set(userId, session);
       const validCategories = [
-      'elektronik', 'bücher', 'games', 'spielzeug', 'küche', 
-      'lebensmittel', 'drogerie', 'fashion', 'sport', 'auto', 
-      'haustier', 'büro', 'multimedia', 'computer', 'gesundheit', 
-      'werkzeuge', 'garten', 'musik', 'software'
-  ]
-
+    'fashion', 'uhren', 'baumarkt', 'haushalt', 'kosmetik', 
+    'küche', 'schmuck', 'musik', 'möbel', 'auto', 
+    'bücher', 'sport', 'büro', 'baby', 'computer', 
+    'elektronik', 'haustier', 'kamera', 'spielwaren', 
+    'garten', 'lebensmittel', 'videospiele', 'gutscheine'
+];
       bot.sendMessage(
         chatId,
         `✅ تم ${data.coupon ? 'حفظ' : 'تخطي'} القسيمة!\n\n` +
@@ -895,20 +896,26 @@ bot.sendMessage(chatId, "✅ تم حفظ سعر العرض!\n\nهل لديك ر�
     case "category":{
     const category = InputValidator.sanitizeText(text, 50).toLowerCase();
     const validCategories = [
-        'elektronik', 'bücher', 'games', 'spielzeug', 'küche','Haushalt',
-        'lebensmittel', 'drogerie', 'fashion', 'sport', 'auto', 
-        'haustier', 'büro', 'multimedia', 'computer', 'gesundheit', 
-        'werkzeuge', 'garten', 'musik', 'software'
-    ];
+    'fashion', 'uhren', 'baumarkt', 'haushalt', 'kosmetik', 
+    'küche', 'schmuck', 'musik', 'möbel', 'auto', 
+    'bücher', 'sport', 'büro', 'baby', 'computer', 
+    'elektronik', 'haustier', 'kamera', 'spielwaren', 
+    'garten', 'lebensmittel', 'videospiele', 'gutscheine'
+];
     
     if (!validCategories.includes(category)) {
     bot.sendMessage(chatId, 
-        "❌ يرجى إدخال تصنيف صالح:\n" +
-        "elektronik, bücher, games, spielzeug, küche, lebensmittel, Haushalt, " +
-        "drogerie, fashion, sport, auto, haustier, büro, multimedia, " +
-        "computer, gesundheit, werkzeuge, garten, musik, software"
-    );
-    return;
+    "❌ يرجى إدخال تصنيف صالح من القائمة التالية:\n\n" +
+    "Amazon Fashion, Uhren, Baumarkt, Haushalt\n" +
+    "Kosmetik & Körperpflege, Küche & Esszimmer\n" +
+    "Schmuck, Musik, Möbel, Auto & Motorrad\n" +
+    "Bücher, Sport und Fitness, Bürobedarf\n" +
+    "Babyartikel, Computer & Zubehör, Elektronik\n" +
+    "Haustierprodukte, Kameras, Spielwaren\n" +
+    "Garten, Lebensmittel, Videospiele\n" +
+    "Geschenkgutscheine"
+);
+return;
 }
 
     data.category = category;
@@ -1335,11 +1342,12 @@ if (!deal) {
      case "category":{
     const category = InputValidator.sanitizeText(text, 50).toLowerCase();
     const validCategories = [
-        'elektronik', 'bücher', 'games', 'spielzeug', 'küche', 'Haushalt',
-        'lebensmittel', 'drogerie', 'fashion', 'sport', 'auto', 
-        'haustier', 'büro', 'multimedia', 'computer', 'gesundheit', 
-        'werkzeuge', 'garten', 'musik', 'software'
-    ];
+    'fashion', 'uhren', 'baumarkt', 'haushalt', 'kosmetik', 
+    'küche', 'schmuck', 'musik', 'möbel', 'auto', 
+    'bücher', 'sport', 'büro', 'baby', 'computer', 
+    'elektronik', 'haustier', 'kamera', 'spielwaren', 
+    'garten', 'lebensmittel', 'videospiele', 'gutscheine'
+];
     
     if (!validCategories.includes(category)) {
         isValid = false;
