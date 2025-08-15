@@ -10,13 +10,6 @@ const xss = require("xss");
 const validator = require("validator");
 const axios = require('axios');
 require('dotenv').config();
-const { execSync } = require('child_process');
-try {
-  execSync('sudo date -s "$(wget -qSO- --max-redirect=0 google.com 2>&1 | grep Date: | cut -d" " -f5-8)Z"');
-  console.log('✅ تم تحديث وقت الخادم بنجاح');
-} catch (error) {
-  console.warn('⚠️ تعذر تحديث وقت الخادم، قد تواجه مشاكل في مصادقة Firebase');
-}
 const admin = require("firebase-admin");
 const serviceAccount = require("./serviceAccountKey.json");
 
