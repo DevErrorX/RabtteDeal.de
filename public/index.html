@@ -10,8 +10,9 @@
 
 
         html {
-              scroll-behavior: smooth;
+            scroll-behavior: smooth;
         }
+
         * {
             margin: 0;
             padding: 0;
@@ -812,85 +813,85 @@
 
         /* Add these styles to your existing CSS in index.html */
 
-.coupon-indicator {
-    position: absolute;
-    top: 0.75rem;
-    right: 0.75rem;
-    background: var(--secondary);
-    color: white;
-    padding: 0.25rem 0.5rem;
-    border-radius: 8px;
-    font-size: 0.8rem;
-    font-weight: 600;
-    z-index: 1;
-}
+        .coupon-indicator {
+            position: absolute;
+            top: 0.75rem;
+            right: 0.75rem;
+            background: var(--secondary);
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            z-index: 1;
+        }
 
-.deal-coupon {
-    background: var(--secondary);
-    color: white;
-    padding: 0.5rem;
-    border-radius: 6px;
-    font-size: 0.85rem;
-    margin-bottom: 1rem;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
+        .deal-coupon {
+            background: var(--secondary);
+            color: white;
+            padding: 0.5rem;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
 
-.deal-coupon code {
-    background: rgba(255, 255, 255, 0.2);
-    padding: 0.2rem 0.5rem;
-    border-radius: 4px;
-    font-family: monospace;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
+        .deal-coupon code {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-family: monospace;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
 
-.deal-coupon code:hover {
-    background: rgba(255, 255, 255, 0.3);
-    transform: scale(1.05);
-}
+        .deal-coupon code:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: scale(1.05);
+        }
 
-/* Update modal content styles */
-.modal .deal-coupon {
-    margin: 1rem 0;
-    background: var(--secondary);
-    color: white;
-    padding: 1rem;
-    border-radius: 8px;
-    text-align: center;
-}
+        /* Update modal content styles */
+        .modal .deal-coupon {
+            margin: 1rem 0;
+            background: var(--secondary);
+            color: white;
+            padding: 1rem;
+            border-radius: 8px;
+            text-align: center;
+        }
 
-.modal .deal-coupon code {
-    font-size: 1.1rem;
-    padding: 0.5rem 1rem;
-    background: rgba(255, 255, 255, 0.2);
-    border-radius: 6px;
-    display: inline-block;
-    margin-top: 0.5rem;
-    cursor: pointer;
-}
+        .modal .deal-coupon code {
+            font-size: 1.1rem;
+            padding: 0.5rem 1rem;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 6px;
+            display: inline-block;
+            margin-top: 0.5rem;
+            cursor: pointer;
+        }
 
-/* Responsive adjustments */
-@media (max-width: 768px) {
-    .coupon-indicator {
-        top: 0.5rem;
-        right: 0.5rem;
-        font-size: 0.7rem;
-        padding: 0.2rem 0.4rem;
-    }
-    
-    .deal-coupon {
-        font-size: 0.8rem;
-        padding: 0.4rem;
-    }
-    
-    .deal-coupon code {
-        padding: 0.15rem 0.4rem;
-        font-size: 0.75rem;
-    }
-}
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .coupon-indicator {
+                top: 0.5rem;
+                right: 0.5rem;
+                font-size: 0.7rem;
+                padding: 0.2rem 0.4rem;
+            }
+
+            .deal-coupon {
+                font-size: 0.8rem;
+                padding: 0.4rem;
+            }
+
+            .deal-coupon code {
+                padding: 0.15rem 0.4rem;
+                font-size: 0.75rem;
+            }
+        }
 
         @media (max-width: 480px) {
             .nav-actions {
@@ -921,183 +922,196 @@
                 margin-bottom: 0.5rem;
             }
         }
-      
-      
-      .filter-tabs {
-    display: flex;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-    max-height: 200px;
-    overflow-y: auto;
-}
 
-.filter-tabs::-webkit-scrollbar {
-    width: 4px;
-}
 
-.filter-tabs::-webkit-scrollbar-track {
-    background: var(--bg-secondary);
-}
+        .filter-tabs {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            max-height: 200px;
+            overflow-y: auto;
+        }
 
-.filter-tabs::-webkit-scrollbar-thumb {
-    background: var(--primary);
-    border-radius: 2px;
-}
+        .filter-tabs::-webkit-scrollbar {
+            width: 4px;
+        }
 
-@media (max-width: 768px) {
-    .filter-tabs {
-        max-height: 150px;
-        justify-content: flex-start;
-    }
-    
-    .filter-tab {
-        font-size: 0.8rem;
-        padding: 0.4rem 0.8rem;
-    }
-}
+        .filter-tabs::-webkit-scrollbar-track {
+            background: var(--bg-secondary);
+        }
 
-/* Add to your existing media queries */
-@media (max-width: 1024px) {
-    /* Tablet styles */
-    .nav-container {
-        padding: 0 1rem;
-    }
-    
-    .hero-cta {
-        flex-direction: column;
-        align-items: center;
-    }
-    
-    .hero-stats {
-        flex-wrap: wrap;
-    }
-    
-    .stat {
-        flex: 1 0 45%;
-        margin-bottom: 1rem;
-    }
-}
+        .filter-tabs::-webkit-scrollbar-thumb {
+            background: var(--primary);
+            border-radius: 2px;
+        }
 
-@media (max-width: 480px) {
-    /* Mobile styles */
-    .nav-container {
-        height: 60px;
-        padding: 0 0.75rem;
-    }
-    
-    .logo {
-        font-size: 1.2rem;
-    }
-    
-    .search-input {
-        width: 120px !important;
-        padding: 0.4rem 1.8rem 0.4rem 0.8rem;
-    }
-    
-    .hero {
-        padding: 80px 1rem 40px;
-    }
-    
-    .hero h1 {
-        font-size: 2rem;
-    }
-    
-    .hero p {
-        font-size: 1rem;
-    }
-    
-    .section-title {
-        font-size: 2rem;
-    }
-    
-    .filter-tabs {
-        max-height: 120px;
-    }
-    
-    .deal-card.list-view .deal-image-container {
-        height: 150px;
-    }
-    
-    .modal-content {
-        width: 95%;
-        padding: 1.5rem;
-        margin: 10% auto;
-    }
-}
+        @media (max-width: 768px) {
+            .filter-tabs {
+                max-height: 150px;
+                justify-content: flex-start;
+            }
 
-/* Add touch-friendly elements */
-@media (hover: none) {
-    button, a, .filter-tab, .view-toggle {
-        min-height: 44px;
-        min-width: 44px;
-    }
-    
-    .deal-card {
-        transform: none !important;
-    }
-}
+            .filter-tab {
+                font-size: 0.8rem;
+                padding: 0.4rem 0.8rem;
+            }
+        }
 
-/* Prevent zoom on input focus on mobile */
-@media screen and (max-width: 768px) {
-    input, select, textarea {
-        font-size: 16px;
-    }
-}
+        /* Add to your existing media queries */
+        @media (max-width: 1024px) {
 
-@media (max-width: 768px) {
-    .nav-actions {
-        gap: 0.5rem;
-    }
-    
-    .wishlist-btn, .theme-toggle {
-        padding: 0.5rem;
-    }
-    
-    .theme-toggle span {
-        display: none;
-    }
-}
+            /* Tablet styles */
+            .nav-container {
+                padding: 0 1rem;
+            }
 
-@media (max-width: 640px) {
-    .deals-grid {
-        grid-template-columns: 1fr;
-    }
-    
-    .deal-image-container {
-        height: 180px;
-    }
-    
-    .deal-content {
-        padding: 1rem;
-    }
-    
-    .deal-actions {
-        flex-direction: column;
-    }
-    
-    .btn-primary, .btn-copy, .btn-favorite {
-        width: 100%;
-    }
-}
+            .hero-cta {
+                flex-direction: column;
+                align-items: center;
+            }
 
-@media (max-width: 768px) {
-    .contact-footer {
-        padding: 2rem 1rem;
-    }
-    
-    .contact-section {
-        margin-bottom: 1.5rem;
-    }
-    
-    .social-links {
-        justify-content: center;
-    }
-}
-@media (max-width: 768px) {
-    .hero::before {
-        background-size: 20px 20px;
-    }
-}
+            .hero-stats {
+                flex-wrap: wrap;
+            }
+
+            .stat {
+                flex: 1 0 45%;
+                margin-bottom: 1rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+
+            /* Mobile styles */
+            .nav-container {
+                height: 60px;
+                padding: 0 0.75rem;
+            }
+
+            .logo {
+                font-size: 1.2rem;
+            }
+
+            .search-input {
+                width: 120px !important;
+                padding: 0.4rem 1.8rem 0.4rem 0.8rem;
+            }
+
+            .hero {
+                padding: 80px 1rem 40px;
+            }
+
+            .hero h1 {
+                font-size: 2rem;
+            }
+
+            .hero p {
+                font-size: 1rem;
+            }
+
+            .section-title {
+                font-size: 2rem;
+            }
+
+            .filter-tabs {
+                max-height: 120px;
+            }
+
+            .deal-card.list-view .deal-image-container {
+                height: 150px;
+            }
+
+            .modal-content {
+                width: 95%;
+                padding: 1.5rem;
+                margin: 10% auto;
+            }
+        }
+
+        /* Add touch-friendly elements */
+        @media (hover: none) {
+
+            button,
+            a,
+            .filter-tab,
+            .view-toggle {
+                min-height: 44px;
+                min-width: 44px;
+            }
+
+            .deal-card {
+                transform: none !important;
+            }
+        }
+
+        /* Prevent zoom on input focus on mobile */
+        @media screen and (max-width: 768px) {
+
+            input,
+            select,
+            textarea {
+                font-size: 16px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .nav-actions {
+                gap: 0.5rem;
+            }
+
+            .wishlist-btn,
+            .theme-toggle {
+                padding: 0.5rem;
+            }
+
+            .theme-toggle span {
+                display: none;
+            }
+        }
+
+        @media (max-width: 640px) {
+            .deals-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .deal-image-container {
+                height: 180px;
+            }
+
+            .deal-content {
+                padding: 1rem;
+            }
+
+            .deal-actions {
+                flex-direction: column;
+            }
+
+            .btn-primary,
+            .btn-copy,
+            .btn-favorite {
+                width: 100%;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .contact-footer {
+                padding: 2rem 1rem;
+            }
+
+            .contact-section {
+                margin-bottom: 1.5rem;
+            }
+
+            .social-links {
+                justify-content: center;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .hero::before {
+                background-size: 20px 20px;
+            }
+        }
     </style>
 </head>
 
@@ -1143,8 +1157,9 @@
     <section class="hero">
         <div class="hero-container">
             <h1>Premium Amazon Deals</h1>
-            <p>Entdecke die besten Angebote mit bis zu 100% Rabatt auf Amazon Deutschland, Als Amazon-Partner verdiene ich an
-            qualifizierten Käufen über die auf dieser Website enthaltenen Links</p>
+            <p>Entdecke die besten Angebote mit bis zu 100% Rabatt auf Amazon Deutschland, Als Amazon-Partner verdiene
+                ich an
+                qualifizierten Käufen über die auf dieser Website enthaltenen Links</p>
 
             <div class="hero-cta">
                 <button class="cta-button" id="dealsBtn">Deals entdecken</button>
@@ -1178,28 +1193,28 @@
 
             <div class="controls-bar">
                 <div class="filter-tabs">
-    <button class="filter-tab active" data-category="all">Alle</button>
-    <button class="filter-tab" data-category="elektronik">Elektronik & Foto</button>
-    <button class="filter-tab" data-category="bücher">Bücher</button>
-    <button class="filter-tab" data-category="games">Games</button>
-    <button class="filter-tab" data-category="spielzeug">Spielzeug & Spiele</button>
-    <button class="filter-tab" data-category="küche">Küche</button>
-    <button class="filter-tab" data-category="Haushalt">Haushalt</button>
-    <button class="filter-tab" data-category="lebensmittel">Lebensmittel</button>
-    <button class="filter-tab" data-category="drogerie">Drogerie & Körperpflege</button>
-    <button class="filter-tab" data-category="fashion">Fashion</button>
-    <button class="filter-tab" data-category="sport">Sport & Freizeit</button>
-    <button class="filter-tab" data-category="auto">Auto & Motorrad</button>
-    <button class="filter-tab" data-category="haustier">Haustierbedarf</button>
-    <button class="filter-tab" data-category="büro">Bürobedarf</button>
-    <button class="filter-tab" data-category="multimedia">Multimedia</button>
-    <button class="filter-tab" data-category="computer">Computer & Zubehör</button>
-    <button class="filter-tab" data-category="gesundheit">Gesundheit</button>
-    <button class="filter-tab" data-category="werkzeuge">Werkzeuge & Heimwerken</button>
-    <button class="filter-tab" data-category="garten">Garten & Outdoor</button>
-    <button class="filter-tab" data-category="musik">Musikinstrumente</button>
-    <button class="filter-tab" data-category="software">Software & Apps</button>
-</div>
+                    <button class="filter-tab active" data-category="all">Alle</button>
+                    <button class="filter-tab" data-category="elektronik">Elektronik & Foto</button>
+                    <button class="filter-tab" data-category="bücher">Bücher</button>
+                    <button class="filter-tab" data-category="games">Games</button>
+                    <button class="filter-tab" data-category="spielzeug">Spielzeug & Spiele</button>
+                    <button class="filter-tab" data-category="küche">Küche</button>
+                    <button class="filter-tab" data-category="Haushalt">Haushalt</button>
+                    <button class="filter-tab" data-category="lebensmittel">Lebensmittel</button>
+                    <button class="filter-tab" data-category="drogerie">Drogerie & Körperpflege</button>
+                    <button class="filter-tab" data-category="fashion">Fashion</button>
+                    <button class="filter-tab" data-category="sport">Sport & Freizeit</button>
+                    <button class="filter-tab" data-category="auto">Auto & Motorrad</button>
+                    <button class="filter-tab" data-category="haustier">Haustierbedarf</button>
+                    <button class="filter-tab" data-category="büro">Bürobedarf</button>
+                    <button class="filter-tab" data-category="multimedia">Multimedia</button>
+                    <button class="filter-tab" data-category="computer">Computer & Zubehör</button>
+                    <button class="filter-tab" data-category="gesundheit">Gesundheit</button>
+                    <button class="filter-tab" data-category="werkzeuge">Werkzeuge & Heimwerken</button>
+                    <button class="filter-tab" data-category="garten">Garten & Outdoor</button>
+                    <button class="filter-tab" data-category="musik">Musikinstrumente</button>
+                    <button class="filter-tab" data-category="software">Software & Apps</button>
+                </div>
 
                 <div class="view-controls">
                     <button class="view-toggle active" data-view="grid">⊞</button>
@@ -1358,9 +1373,29 @@
             }
         });
 
+        function setupRealtimeUpdates() {
+                const eventSource = new EventSource('/api/deals/stream');
+
+                eventSource.onmessage = function (e) {
+                    const updatedDeals = JSON.parse(e.data);
+                    deals = updatedDeals;
+                    if (document.querySelector('.filter-tab.active').dataset.category === 'all') {
+                        filteredDeals = [...deals];
+                    }
+                    renderDeals();
+                    updateStats();
+                };
+
+                eventSource.onerror = function () {
+                    console.log('SSE connection error, attempting to reconnect...');
+                    setTimeout(setupRealtimeUpdates, 5000);
+                };
+            }
+
         document.addEventListener('DOMContentLoaded', function () {
             initializeTheme();
             loadDeals();
+            setupRealtimeUpdates();
             updateWishlistCount();
             setupEventListeners();
 
@@ -1421,23 +1456,23 @@
 
 
         function renderDeals() {
-                try {
-                    const grid = document.getElementById('dealsGrid');
+            try {
+                const grid = document.getElementById('dealsGrid');
 
-                    if (filteredDeals.length === 0) {
-                        grid.innerHTML = '<p style="text-align: center; color: var(--text-secondary); grid-column: 1 / -1;">Keine Deals gefunden</p>';
-                        return;
-                    }
+                if (filteredDeals.length === 0) {
+                    grid.innerHTML = '<p style="text-align: center; color: var(--text-secondary); grid-column: 1 / -1;">Keine Deals gefunden</p>';
+                    return;
+                }
 
-                    grid.innerHTML = '';
+                grid.innerHTML = '';
 
-                    filteredDeals.forEach(deal => {
-                        const dealCard = document.createElement('div');
-                        dealCard.className = `deal-card ${currentView === 'list' ? 'list-view' : ''} ${wishlist.includes(deal.id) ? 'favorited' : ''}`;
+                filteredDeals.forEach(deal => {
+                    const dealCard = document.createElement('div');
+                    dealCard.className = `deal-card ${currentView === 'list' ? 'list-view' : ''} ${wishlist.includes(deal.id) ? 'favorited' : ''}`;
 
-                        const safeCoupon = deal.coupon ? deal.coupon.replace(/'/g, '&#39;').replace(/"/g, '&quot;') : '';
+                    const safeCoupon = deal.coupon ? deal.coupon.replace(/'/g, '&#39;').replace(/"/g, '&quot;') : '';
 
-                        dealCard.innerHTML = `
+                    dealCard.innerHTML = `
                 <div class="deal-image-container">
                     <img src = "${deal.imageUrl}" alt = "${deal.title}" class="deal-image" loading = "lazy"
                 onerror = "this.onerror=null;this.src='https://via.placeholder.com/300?text=Image+Not+Available';" >
@@ -1468,42 +1503,42 @@
                 </div>
             `;
 
-                        dealCard.addEventListener('click', function (e) {
-                            if (e.target.closest('.btn-primary, .btn-copy, .btn-favorite, .deal-coupon code')) {
-                                return;
-                            }
-                            navigateToDeal(deal.id);
-                        });
-
-                        grid.appendChild(dealCard);
+                    dealCard.addEventListener('click', function (e) {
+                        if (e.target.closest('.btn-primary, .btn-copy, .btn-favorite, .deal-coupon code')) {
+                            return;
+                        }
+                        navigateToDeal(deal.id);
                     });
-                    setupDealEventListeners();
 
-                } catch (error) {
-                    console.error('Rendering error:', error);
-                    document.getElementById('dealsGrid').innerHTML = `
+                    grid.appendChild(dealCard);
+                });
+                setupDealEventListeners();
+
+            } catch (error) {
+                console.error('Rendering error:', error);
+                document.getElementById('dealsGrid').innerHTML = `
             <div class="error-message">
                 Error loading deals. Please try refreshing the page.
             </div>
         `;
-                }
-            }        
-            function openDealModal(dealId) {
-                    const deal = deals.find(d => d.id === dealId);
-                    if (!deal) return;
+            }
+        }
+        function openDealModal(dealId) {
+            const deal = deals.find(d => d.id === dealId);
+            if (!deal) return;
 
-                    const modal = document.getElementById('dealModal');
-                    const content = document.getElementById('modalContent');
+            const modal = document.getElementById('dealModal');
+            const content = document.getElementById('modalContent');
 
-                    const safeCoupon = deal.coupon ? deal.coupon.replace(/'/g, '&#39;').replace(/"/g, '&quot;') : '';
-                    const couponSection = deal.coupon ? `
+            const safeCoupon = deal.coupon ? deal.coupon.replace(/'/g, '&#39;').replace(/"/g, '&quot;') : '';
+            const couponSection = deal.coupon ? `
                         <div class="deal-coupon">
                             🎫 Coupon verfügbar: <code data-coupon="${safeCoupon}" style="cursor: pointer;">${deal.coupon}</code>
                             <div style="font-size: 0.8rem; margin-top: 0.5rem; opacity: 0.9;">Klicken zum Kopieren</div>
                         </div>
                     ` : '';
 
-                    content.innerHTML = `
+            content.innerHTML = `
         <h2>${deal.title}</h2>
         <img src="${deal.imageUrl}" alt="${deal.title}" class="modal-deal-image">
         ${couponSection}
@@ -1529,69 +1564,69 @@
         </div>
     `;
 
-                    const modalCouponCode = content.querySelector('.deal-coupon code');
-                    if (modalCouponCode) {
-                        modalCouponCode.addEventListener('click', function (e) {
-                            e.stopPropagation();
-                            const couponCode = this.getAttribute('data-coupon') || this.textContent;
-                            copyCouponToClipboard(couponCode);
-                        });
-                    }
+            const modalCouponCode = content.querySelector('.deal-coupon code');
+            if (modalCouponCode) {
+                modalCouponCode.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    const couponCode = this.getAttribute('data-coupon') || this.textContent;
+                    copyCouponToClipboard(couponCode);
+                });
+            }
 
-                    modal.style.display = 'block';
-                }
+            modal.style.display = 'block';
+        }
 
 
 
         function copyCouponToClipboard(couponCode) {
-                if (!couponCode) return;
+            if (!couponCode) return;
 
-                navigator.clipboard.writeText(couponCode).then(() => {
+            navigator.clipboard.writeText(couponCode).then(() => {
+                showNotification(`Coupon "${couponCode}" kopiert!`);
+            }).catch(() => {
+                const textArea = document.createElement('textarea');
+                textArea.value = couponCode;
+                textArea.style.position = 'fixed';
+                textArea.style.left = '-999999px';
+                textArea.style.top = '-999999px';
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                try {
+                    document.execCommand('copy');
                     showNotification(`Coupon "${couponCode}" kopiert!`);
-                }).catch(() => {
-                    const textArea = document.createElement('textarea');
-                    textArea.value = couponCode;
-                    textArea.style.position = 'fixed';
-                    textArea.style.left = '-999999px';
-                    textArea.style.top = '-999999px';
-                    document.body.appendChild(textArea);
-                    textArea.focus();
-                    textArea.select();
-                    try {
-                        document.execCommand('copy');
-                        showNotification(`Coupon "${couponCode}" kopiert!`);
-                    } catch (err) {
-                        console.error('Fallback copy failed:', err);
-                        showNotification('Kopieren fehlgeschlagen', 'error');
-                    }
-                    document.body.removeChild(textArea);
-                });
-            }
+                } catch (err) {
+                    console.error('Fallback copy failed:', err);
+                    showNotification('Kopieren fehlgeschlagen', 'error');
+                }
+                document.body.removeChild(textArea);
+            });
+        }
         function setupDealEventListeners() {
-                document.querySelectorAll('.deal-coupon code').forEach(codeElement => {
-                    codeElement.addEventListener('click', function (e) {
-                        e.stopPropagation();
-                        const couponCode = this.getAttribute('data-coupon') || this.textContent;
-                        copyCouponToClipboard(couponCode);
-                    });
+            document.querySelectorAll('.deal-coupon code').forEach(codeElement => {
+                codeElement.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    const couponCode = this.getAttribute('data-coupon') || this.textContent;
+                    copyCouponToClipboard(couponCode);
                 });
+            });
 
-                document.querySelectorAll('.btn-copy').forEach(btn => {
-                    btn.addEventListener('click', function (e) {
-                        e.stopPropagation();
-                        const dealId = this.getAttribute('data-deal-id');
-                        copyDealLink(dealId, e);
-                    });
+            document.querySelectorAll('.btn-copy').forEach(btn => {
+                btn.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    const dealId = this.getAttribute('data-deal-id');
+                    copyDealLink(dealId, e);
                 });
+            });
 
-                document.querySelectorAll('.btn-favorite').forEach(btn => {
-                    btn.addEventListener('click', function (e) {
-                        e.stopPropagation();
-                        const dealId = this.getAttribute('data-deal-id');
-                        toggleWishlist(dealId, e);
-                    });
+            document.querySelectorAll('.btn-favorite').forEach(btn => {
+                btn.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    const dealId = this.getAttribute('data-deal-id');
+                    toggleWishlist(dealId, e);
                 });
-            }
+            });
+        }
 
         document.querySelector('.close').onclick = function (e) {
             e.stopPropagation();
@@ -1645,12 +1680,12 @@
             });
         }
 
-            function navigateToDeal(dealId) {
-                const deal = deals.find(d => d.id === dealId);
-                if (deal) {
-                    window.location.href = `/deal/${deal.slug}`;
-                }
+        function navigateToDeal(dealId) {
+            const deal = deals.find(d => d.id === dealId);
+            if (deal) {
+                window.location.href = `/deal/${deal.slug}`;
             }
+        }
         function setupEventListeners() {
             document.querySelectorAll('.filter-tab').forEach(tab => {
                 tab.addEventListener('click', function () {
@@ -1667,136 +1702,135 @@
                 });
             });
 
-                    document.querySelectorAll('.view-toggle').forEach(toggle => {
-                        toggle.addEventListener('click', function () {
-                            document.querySelectorAll('.view-toggle').forEach(t => t.classList.remove('active'));
-                            this.classList.add('active');
+            document.querySelectorAll('.view-toggle').forEach(toggle => {
+                toggle.addEventListener('click', function () {
+                    document.querySelectorAll('.view-toggle').forEach(t => t.classList.remove('active'));
+                    this.classList.add('active');
 
-                            currentView = this.dataset.view;
-                            const grid = document.getElementById('dealsGrid');
-                            if (currentView === 'list') {
-                                grid.classList.add('list-view');
-                            } else {
-                                grid.classList.remove('list-view');
-                            }
-                            renderDeals();
-                        });
-                    });
-
-                    document.getElementById('sortSelect').addEventListener('change', function () {
-                        const sortBy = this.value;
-
-                        switch (sortBy) {
-                            case 'newest':
-                                filteredDeals.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-                                break;
-                            case 'discount':
-                                filteredDeals.sort((a, b) => {
-                                    const discountA = ((a.oldPrice - a.price) / a.oldPrice) * 100;
-                                    const discountB = ((b.oldPrice - b.price) / b.oldPrice) * 100;
-                                    return discountB - discountA;
-                                });
-                                break;
-                            case 'price-low':
-                                filteredDeals.sort((a, b) => a.price - b.price);
-                                break;
-                            case 'price-high':
-                                filteredDeals.sort((a, b) => b.price - a.price);
-                                break;
-                        }
-                        renderDeals();
-                    });
-
-                    document.getElementById('searchInput').addEventListener('input', function () {
-                        const query = this.value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-                        if (query === '') {
-                            filteredDeals = [...deals];
-                        } else {
-                            filteredDeals = deals.filter(deal =>
-                                deal.title.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(query) ||
-                                deal.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(query) ||
-                                deal.category.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(query) ||
-                                (deal.coupon && deal.coupon.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(query))
-                            );
-                        }
-                        renderDeals();
-                    });
-                    document.getElementById('categoriesBtn').addEventListener('click', showCategories);
-                    document.getElementById('contactBtn').addEventListener('click', scrollToContact);
-                    document.getElementById('dealsBtn').addEventListener('click', scrollToDeals);
-                    document.getElementById('wishlistBtn').addEventListener('click', showWishlist);
-                    document.getElementById('wishlistBtn2').addEventListener('click', showWishlist);
-                    document.getElementById('themeToggle').addEventListener('click', toggleTheme);
-                }
-
-                function showCategories() {
-                    document.querySelector('.filter-tabs').scrollIntoView({ behavior: 'smooth' });
-                    showNotification('Kategorien werden angezeigt');
-                }
-
-                function scrollToContact() {
-                    document.getElementById('contact').scrollIntoView({ behavior: 'smooth' });
-                }
-
-                function scrollToDeals() {
-                    document.getElementById('deals').scrollIntoView({ behavior: 'smooth' });
-                }
-
-                function updateStats() {
-                    document.getElementById('totalDeals').textContent = deals.length;
-                }
-
-                function showNotification(message, type = 'success') {
-                    const notification = document.getElementById('notification');
-                    const text = document.getElementById('notificationText');
-
-                    text.textContent = message;
-                    notification.className = `notification ${type}`;
-                    notification.classList.add('show');
-
-                    setTimeout(() => {
-                        notification.classList.remove('show');
-                    }, 3000);
-                }
-
-                let requestCount = 0;
-                const maxRequests = 100;
-                const timeWindow = 60000;
-                function checkRateLimit() {
-                    requestCount++;
-                    if (requestCount > maxRequests) {
-                        showSecurityOverlay();
-                        return false;
+                    currentView = this.dataset.view;
+                    const grid = document.getElementById('dealsGrid');
+                    if (currentView === 'list') {
+                        grid.classList.add('list-view');
+                    } else {
+                        grid.classList.remove('list-view');
                     }
-
-                    setTimeout(() => {
-                        requestCount = Math.max(0, requestCount - 1);
-                    }, timeWindow);
-
-                    return true;
-                }
-
-                const originalFetch = window.fetch;
-                window.fetch = function (...args) {
-                    if (!checkRateLimit()) {
-                        return Promise.reject(new Error('Rate limit exceeded'));
-                    }
-                    return originalFetch.apply(this, args);
-                };
-
-                Object.defineProperty(window, 'console', {
-                    value: {},
-                    writable: false,
-                    configurable: false
+                    renderDeals();
                 });
+            });
 
-                setInterval(() => {
-                    if (window.console && window.console.clear) {
-                        window.console.clear();
-                    }
-                }, 1000);
-            </script>
-    </body>
-    
-    </html>
+            document.getElementById('sortSelect').addEventListener('change', function () {
+                const sortBy = this.value;
 
+                switch (sortBy) {
+                    case 'newest':
+                        filteredDeals.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+                        break;
+                    case 'discount':
+                        filteredDeals.sort((a, b) => {
+                            const discountA = ((a.oldPrice - a.price) / a.oldPrice) * 100;
+                            const discountB = ((b.oldPrice - b.price) / b.oldPrice) * 100;
+                            return discountB - discountA;
+                        });
+                        break;
+                    case 'price-low':
+                        filteredDeals.sort((a, b) => a.price - b.price);
+                        break;
+                    case 'price-high':
+                        filteredDeals.sort((a, b) => b.price - a.price);
+                        break;
+                }
+                renderDeals();
+            });
+
+            document.getElementById('searchInput').addEventListener('input', function () {
+                const query = this.value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                if (query === '') {
+                    filteredDeals = [...deals];
+                } else {
+                    filteredDeals = deals.filter(deal =>
+                        deal.title.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(query) ||
+                        deal.description.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(query) ||
+                        deal.category.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(query) ||
+                        (deal.coupon && deal.coupon.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(query))
+                    );
+                }
+                renderDeals();
+            });
+            document.getElementById('categoriesBtn').addEventListener('click', showCategories);
+            document.getElementById('contactBtn').addEventListener('click', scrollToContact);
+            document.getElementById('dealsBtn').addEventListener('click', scrollToDeals);
+            document.getElementById('wishlistBtn').addEventListener('click', showWishlist);
+            document.getElementById('wishlistBtn2').addEventListener('click', showWishlist);
+            document.getElementById('themeToggle').addEventListener('click', toggleTheme);
+        }
+
+        function showCategories() {
+            document.querySelector('.filter-tabs').scrollIntoView({ behavior: 'smooth' });
+            showNotification('Kategorien werden angezeigt');
+        }
+
+        function scrollToContact() {
+            document.getElementById('contact').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function scrollToDeals() {
+            document.getElementById('deals').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function updateStats() {
+            document.getElementById('totalDeals').textContent = deals.length;
+        }
+
+        function showNotification(message, type = 'success') {
+            const notification = document.getElementById('notification');
+            const text = document.getElementById('notificationText');
+
+            text.textContent = message;
+            notification.className = `notification ${type}`;
+            notification.classList.add('show');
+
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
+
+        let requestCount = 0;
+        const maxRequests = 100;
+        const timeWindow = 60000;
+        function checkRateLimit() {
+            requestCount++;
+            if (requestCount > maxRequests) {
+                showSecurityOverlay();
+                return false;
+            }
+
+            setTimeout(() => {
+                requestCount = Math.max(0, requestCount - 1);
+            }, timeWindow);
+
+            return true;
+        }
+
+        const originalFetch = window.fetch;
+        window.fetch = function (...args) {
+            if (!checkRateLimit()) {
+                return Promise.reject(new Error('Rate limit exceeded'));
+            }
+            return originalFetch.apply(this, args);
+        };
+
+        Object.defineProperty(window, 'console', {
+            value: {},
+            writable: false,
+            configurable: false
+        });
+
+        setInterval(() => {
+            if (window.console && window.console.clear) {
+                window.console.clear();
+            }
+        }, 1000);
+    </script>
+</body>
+
+</html>
