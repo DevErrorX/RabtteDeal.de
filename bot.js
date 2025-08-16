@@ -957,35 +957,26 @@ bot.sendMessage(chatId, "✅ تم حفظ رابط أمازون!\n\nأرسل صو
 }
 async function completeDealAdd(chatId, userId, data) {
   try {
-    console.log(`🔄 Starting deal completion for user ${userId}:`, {
-      name: data.name,
-      amazonUrl: data.amazonUrl,
-      hasImageInfo: !!data.imageInfo
-    });
-
-    // Validate all deal data
+    const currentSession = userSessions.get(userId);
+    if (!currentSession || currentSession.action !== "add_deal") {
+      throw new Error("Session validation failed");
+    }
     const validationErrors = InputValidator.validateDealData(data);
     if (validationErrors.length > 0) {
       console.error('❌ Validation failed:', validationErrors);
       throw new Error(`Validation failed: ${validationErrors.join(', ')}`);
     }
-
-    // Generate unique deal ID and slug
     const dealId = generateDealId();
     const slug = generateSlug(data.name);
     
-    // Calculate discount percentage
     const discount = Math.round(
       ((data.originalPrice - data.dealPrice) / data.originalPrice) * 100
     );
 
-    // Determine badge based on discount
     const badge = discount >= 70 ? "HOT" : discount >= 50 ? "FIRE" : discount >= 30 ? "DEAL" : "SAVE";
 
-    // Set expiration time (24 hours from now)
     const expirationTime = Date.now() + (24 * 60 * 60 * 1000);
 
-    // Generate random but realistic ratings and reviews
     const rating = (Math.random() * 1.5 + 3.5).toFixed(1); // 3.5 to 5.0
     const reviews = Math.floor(Math.random() * 2000) + 100; // 100 to 2100 reviews
 
@@ -1111,7 +1102,8 @@ async function completeDealAdd(chatId, userId, data) {
         `${newDeal.coupon ? `🎫 كود الخصم: ${newDeal.coupon}\n` : ''}` +
         `${newDeal.shipping ? `🚚 ${newDeal.shipping}\n` : ''}` +
         `⏰ ينتهي خلال 24 ساعة`;
-
+  
+      userSessions.delete(userId);
       await bot.sendMessage(chatId, previewMessage);
     } catch (previewError) {
       console.warn('⚠️ Could not send preview message:', previewError.message);
