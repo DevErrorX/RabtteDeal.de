@@ -550,69 +550,139 @@ function generateCloudflareRay() {
   }
   return ray + '-FRA';
 }
+
 async function loadDeals() {
   try {
+    console.log('🔄 Loading deals from Firebase...');
     const snapshot = await dealsRef.once("value");
-    const loadedDeals = snapshot.val() || [];
+    const firebaseData = snapshot.val();
     
-    deals = Object.values(loadedDeals).filter(deal => {
+    if (!firebaseData) {
+      console.log('📭 No deals found in Firebase');
+      deals = [];
+      return;
+    }
+
+    let loadedDeals = [];
+    if (Array.isArray(firebaseData)) {
+      loadedDeals = firebaseData.filter(deal => deal != null);
+    } else if (typeof firebaseData === 'object') {
+      loadedDeals = Object.values(firebaseData).filter(deal => deal != null);
+    }
+
+    console.log(`📊 Raw data loaded: ${loadedDeals.length} deals`);
+
+    deals = loadedDeals.filter(deal => {
       try {
-        return deal.id && 
+        const isValid = deal && 
+               typeof deal === 'object' &&
+               deal.id && 
                deal.title && 
                deal.description &&
-               deal.price > 0 &&
-               deal.oldPrice > 0 &&
+               typeof deal.price === 'number' && deal.price > 0 &&
+               typeof deal.oldPrice === 'number' && deal.oldPrice > 0 &&
                deal.amazonUrl &&
-               deal.imageUrl &&
                deal.category;
-      } catch {
+        
+        if (!isValid) {
+          console.warn('⚠️ Invalid deal found:', deal?.id || 'unknown');
+          return false;
+        }
+        
+        return true;
+      } catch (error) {
+        console.warn('⚠️ Error validating deal:', error);
         return false;
       }
     }).map(deal => ({
       ...deal,
+      price: parseFloat(deal.price),
+      oldPrice: parseFloat(deal.oldPrice),
+      discount: deal.discount || Math.round(((deal.oldPrice - deal.price) / deal.oldPrice) * 100),
+      timer: deal.timer || (Date.now() + 24 * 60 * 60 * 1000),
+      rating: deal.rating || 4.5,
+      reviews: deal.reviews || Math.floor(Math.random() * 1000) + 100,
+      badge: deal.badge || (deal.discount >= 70 ? "HOT" : deal.discount >= 50 ? "FIRE" : deal.discount >= 30 ? "DEAL" : "SAVE"),
+      imageUrl: deal.imageUrl || `/secure-image/${deal.id}`,
       title: InputValidator.sanitizeText(deal.title, 100),
       description: InputValidator.sanitizeText(deal.description, 500),
-      category: InputValidator.sanitizeText(deal.category, 50).toLowerCase()
+      category: InputValidator.sanitizeText(deal.category, 50).toLowerCase(),
+      slug: deal.slug || generateSlug(deal.title)
     }));
     
-    console.log(`✅ Loaded ${deals.length} valid deals from Firebase`);
+    console.log(`✅ Successfully loaded ${deals.length} valid deals from Firebase`);
+    const now = Date.now();
+    const activeDeals = deals.filter(deal => deal.timer > now);
+    const expiredDeals = deals.filter(deal => deal.timer <= now);
+    console.log(`📈 Active deals: ${activeDeals.length}, Expired deals: ${expiredDeals.length}`);
+    
   } catch (error) {
     console.error("❌ Error loading deals from Firebase:", error);
-    deals = [];
+    if (!deals || deals.length === 0) {
+      deals = [];
+    }
+    throw error; 
   }
 }
+
 async function saveDeals() {
   try {
+    console.log(`💾 Saving ${deals.length} deals to Firebase...`);
+    
+    // Validate all deals before saving
     const validDeals = deals.filter(deal => {
-      const errors = InputValidator.validateDealData({
-        name: deal.title,
-        description: deal.description,
-        originalPrice: deal.oldPrice,
-        dealPrice: deal.price,
-        category: deal.category,
-        amazonUrl: deal.amazonUrl,
-        imageUrl: `/secure-image/${deal.id}`
-      });
-      return errors.length === 0;
+      try {
+        const errors = InputValidator.validateDealData({
+          name: deal.title,
+          description: deal.description,
+          originalPrice: deal.oldPrice,
+          dealPrice: deal.price,
+          category: deal.category,
+          amazonUrl: deal.amazonUrl,
+          imageUrl: deal.imageUrl || `/secure-image/${deal.id}`
+        });
+        
+        if (errors.length > 0) {
+          console.warn(`⚠️ Invalid deal ${deal.id}:`, errors);
+          return false;
+        }
+        
+        return true;
+      } catch (error) {
+        console.warn(`⚠️ Error validating deal ${deal.id}:`, error);
+        return false;
+      }
     });
     
     if (validDeals.length !== deals.length) {
-      console.warn(`⚠️ Removed ${deals.length - validDeals.length} invalid deals during save`);
-      deals = validDeals;
+      console.warn(`⚠️ Filtered out ${deals.length - validDeals.length} invalid deals during save`);
+      deals = validDeals; // Update the global deals array
     }
     
+    // Create the data structure for Firebase
     const dealsObject = {};
-    deals.forEach(deal => {
-      dealsObject[deal.id] = deal;
+    deals.forEach((deal, index) => {
+      // Use the deal ID as the key for better Firebase structure
+      dealsObject[deal.id] = {
+        ...deal,
+        // Ensure we have all required fields
+        updatedAt: new Date().toISOString(),
+        // Add index for ordering if needed
+        order: index
+      };
     });
     
+    // Save to Firebase
     await dealsRef.set(dealsObject);
-    console.log(`💾 Saved ${deals.length} deals to Firebase`);
+    console.log(`✅ Successfully saved ${deals.length} deals to Firebase`);
+    
   } catch (error) {
     console.error("❌ Error saving deals to Firebase:", error);
     throw error;
   }
 }
+
+// Fixed API endpoint to ensure consistency
 
 function generateDealId() {
   return Date.now().toString() + crypto.randomBytes(4).toString('hex');
@@ -1543,39 +1613,91 @@ async function handleRestartWebsite(chatId) {
     bot.sendMessage(chatId, "❌ Error restarting website.", { reply_markup: adminKeyboard });
   }
 }
+let syncInterval;
+
+function startPeriodicSync() {
+  if (syncInterval) {
+    clearInterval(syncInterval);
+  }
+  
+  // Sync every 5 minutes
+  syncInterval = setInterval(async () => {
+    try {
+      console.log('🔄 Performing periodic sync with Firebase...');
+      await loadDeals();
+    } catch (error) {
+      console.error('❌ Periodic sync failed:', error);
+    }
+  }, 5 * 60 * 1000);
+  
+  console.log('⏰ Periodic sync started (5 minute intervals)');
+}
+
+// Add Firebase connection monitoring
+dealsRef.on('value', (snapshot) => {
+  console.log('🔄 Firebase data changed, updating local cache...');
+  // Don't directly update deals array here to avoid conflicts
+  // Instead, trigger a reload after a short delay
+  setTimeout(() => {
+    loadDeals().catch(console.error);
+  }, 1000);
+});
 app.get('/api/deals', apiLimiter, async (req, res) => {
   try {
     const now = Date.now();
-    const snapshot = await dealsRef.once("value");
-    const allDeals = snapshot.val() || {};
     
-    const activeDeals = Object.values(allDeals)
-      .filter(deal => deal.timer > now)
+    // Always fetch fresh data from Firebase for API calls
+    const snapshot = await dealsRef.once("value");
+    const firebaseData = snapshot.val() || {};
+    
+    // Convert to array and filter active deals
+    const allDeals = Object.values(firebaseData).filter(deal => 
+      deal && 
+      deal.id && 
+      deal.title && 
+      typeof deal.price === 'number' && 
+      typeof deal.oldPrice === 'number'
+    );
+    
+    const activeDeals = allDeals
+      .filter(deal => (deal.timer || 0) > now)
       .map(deal => ({
         id: deal.id,
-        slug: deal.slug,
+        slug: deal.slug || generateSlug(deal.title),
         title: deal.title,
         description: deal.description,
-        price: deal.price,
-        oldPrice: deal.oldPrice,
-        discount: deal.discount,
+        price: parseFloat(deal.price),
+        oldPrice: parseFloat(deal.oldPrice),
+        discount: deal.discount || Math.round(((deal.oldPrice - deal.price) / deal.oldPrice) * 100),
         category: deal.category,
         imageUrl: `/secure-image/${deal.id}`,
         coupon: deal.coupon || null,
         rating: deal.rating || 4.5,
         reviews: deal.reviews || Math.floor(Math.random() * 1000) + 100,
         timer: deal.timer,
-        badge: deal.badge || (deal.discount > 50 ? "HOT" : "DEAL"),
-        createdAt: deal.createdAt
-      }));
+        badge: deal.badge || (deal.discount >= 70 ? "HOT" : deal.discount >= 50 ? "FIRE" : deal.discount >= 30 ? "DEAL" : "SAVE"),
+        createdAt: deal.createdAt,
+        availability: deal.availability || "In Stock",
+        shipping: deal.shipping || (deal.discount >= 50 ? "Free Shipping" : null)
+      }))
+      .sort((a, b) => b.discount - a.discount); // Sort by discount descending
     
-    res.setHeader('Cache-Control', 'public, max-age=300'); 
+    console.log(`📡 API: Serving ${activeDeals.length} active deals out of ${allDeals.length} total`);
+    
+    res.setHeader('Cache-Control', 'public, max-age=300');
+    res.setHeader('X-Total-Deals', allDeals.length.toString());
+    res.setHeader('X-Active-Deals', activeDeals.length.toString());
+    
     res.json(activeDeals);
   } catch (error) {
     console.error("❌ Error serving deals API:", error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ 
+      error: 'Internal server error',
+      message: 'Failed to load deals from database'
+    });
   }
 });
+
 
 app.get('/redirect/:dealId', redirectLimiter, async (req, res) => {
   try {
@@ -1588,16 +1710,19 @@ app.get('/redirect/:dealId', redirectLimiter, async (req, res) => {
       ));
     }
 
-    const deal = deals.find(d => d.id === dealId);
+    // Fetch fresh data from Firebase
+    const snapshot = await dealsRef.child(dealId).once("value");
+    const deal = snapshot.val();
     
     if (!deal) {
+      console.warn(`🔍 Deal not found: ${dealId}`);
       return res.status(404).send(generateErrorPage(
         "Deal Not Found",
-        "The requested deal could not be found"
+        "The requested deal could not be found or may have been removed"
       ));
     }
 
-    if (deal.timer <= Date.now()) {
+    if ((deal.timer || 0) <= Date.now()) {
       return res.status(410).send(generateErrorPage(
         "Deal Expired",
         "This deal has expired and is no longer available"
@@ -1611,7 +1736,16 @@ app.get('/redirect/:dealId', redirectLimiter, async (req, res) => {
       ));
     }
 
-    console.log(`🔗 Redirect to deal ${dealId} from IP ${req.ip}`);
+    console.log(`🔗 Redirect to deal ${dealId}: "${deal.title}" from IP ${req.ip}`);
+    
+    // Update click count
+    try {
+      await dealsRef.child(dealId).child('clicks').transaction((currentClicks) => {
+        return (currentClicks || 0) + 1;
+      });
+    } catch (clickError) {
+      console.warn('⚠️ Failed to update click count:', clickError);
+    }
     
     res.setHeader('X-Robots-Tag', 'noindex, nofollow');
     res.setHeader('Referrer-Policy', 'no-referrer');
@@ -1934,4 +2068,11 @@ if (require.main === module) {
 }
 
 
-module.exports = { app, startWebsite, security };
+module.exports = { 
+  app, 
+  startWebsite, 
+  security,
+  loadDeals,
+  saveDeals,
+  startPeriodicSync
+};
