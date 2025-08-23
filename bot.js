@@ -253,6 +253,26 @@ class SecurityManager {
       }
     }
   }
+
+  generateProtectedUrl(dealId, ip) {
+  const timestamp = Date.now();
+  const token = crypto.createHmac('sha256', WEBHOOK_SECRET)
+    .update(`${dealId}-${ip}-${timestamp}`)
+    .digest('hex')
+    .substring(0, 16);
+  
+  return `/redirect/${dealId}?t=${timestamp}&token=${token}`;
+}
+
+  validateProtectedUrl(dealId, token, timestamp, ip) {
+  const expectedToken = crypto.createHmac('sha256', WEBHOOK_SECRET)
+    .update(`${dealId}-${ip}-${timestamp}`)
+    .digest('hex')
+    .substring(0, 16);
+  
+  const isExpired = Date.now() - parseInt(timestamp) > 30000; 
+  return !isExpired && token === expectedToken;
+}
 }
 
 class InputValidator {
