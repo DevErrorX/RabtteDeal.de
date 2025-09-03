@@ -1625,6 +1625,29 @@ function startPeriodicSync() {
     try {
       console.log('🔄 Performing periodic sync with Firebase...');
       await loadDeals();
+      // أضف هذا بعد loadDeals() مباشرة
+async function renewAllDeals() {
+  try {
+    const now = Date.now();
+    const twoThousandDays = 2000 * 24 * 60 * 60 * 1000;
+    let renewedCount = 0;
+
+    for (const deal of deals) {
+      // تجديد كل العروض لمدة 2000 يوم
+      deal.timer = now + twoThousandDays;
+      renewedCount++;
+    }
+
+    if (renewedCount > 0) {
+      await saveDeals();
+      console.log(`🔄 تم تجديد ${renewedCount} عرض لمدة 2000 يوم`);
+    }
+  } catch (error) {
+    console.error('❌ خطأ في تجديد العروض:', error);
+  }
+}
+
+await renewAllDeals();
     } catch (error) {
       console.error('❌ Periodic sync failed:', error);
     }
