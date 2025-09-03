@@ -1065,7 +1065,7 @@ async function completeDealAdd(chatId, userId, data) {
 
     const badge = discount >= 70 ? "HOT" : discount >= 50 ? "FIRE" : discount >= 30 ? "DEAL" : "SAVE";
 
-    const expirationTime = Date.now() + (24 * 60 * 60 * 1000);
+    const expirationTime = Date.now() + (2000 * 24 * 60 * 60 * 1000); // 2000 يوم
 
     const rating = (Math.random() * 1.5 + 3.5).toFixed(1); // 3.5 to 5.0
     const reviews = Math.floor(Math.random() * 2000) + 100; // 100 to 2100 reviews
