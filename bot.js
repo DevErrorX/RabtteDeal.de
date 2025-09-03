@@ -614,6 +614,37 @@ async function loadDeals() {
     const now = Date.now();
     const activeDeals = deals.filter(deal => deal.timer > now);
     const expiredDeals = deals.filter(deal => deal.timer <= now);
+    // تجديد جميع العروض المنتهية - إضافة لمرة واحدة
+async function renewAllDeals() {
+  try {
+    const now = Date.now();
+    const twoThousandDays = 2000 * 24 * 60 * 60 * 1000;
+    let renewedCount = 0;
+
+    for (const deal of deals) {
+      if (deal.timer <= now) {
+        deal.timer = now + twoThousandDays;
+        renewedCount++;
+      }
+    }
+
+    if (renewedCount > 0) {
+      await saveDeals();
+      console.log(`🔄 تم تجديد ${renewedCount} عرض منتهي لمدة 2000 يوم`);
+      // أعادة تحميل العروض بعد التجديد
+      await loadDeals();
+    }
+  } catch (error) {
+    console.error('❌ خطأ في تجديد العروض:', error);
+  }
+}
+
+// تجديد العروض فقط إذا كانت كلها منتهية
+if (deals.length > 0 && expiredDeals.length === deals.length) {
+  console.log('🔄 تجديد جميع العروض المنتهية...');
+  await renewAllDeals();
+}
+    
     console.log(`📈 Active deals: ${activeDeals.length}, Expired deals: ${expiredDeals.length}`);
     
   } catch (error) {
@@ -1625,29 +1656,6 @@ function startPeriodicSync() {
     try {
       console.log('🔄 Performing periodic sync with Firebase...');
       await loadDeals();
-      // أضف هذا بعد loadDeals() مباشرة
-async function renewAllDeals() {
-  try {
-    const now = Date.now();
-    const twoThousandDays = 2000 * 24 * 60 * 60 * 1000;
-    let renewedCount = 0;
-
-    for (const deal of deals) {
-      // تجديد كل العروض لمدة 2000 يوم
-      deal.timer = now + twoThousandDays;
-      renewedCount++;
-    }
-
-    if (renewedCount > 0) {
-      await saveDeals();
-      console.log(`🔄 تم تجديد ${renewedCount} عرض لمدة 2000 يوم`);
-    }
-  } catch (error) {
-    console.error('❌ خطأ في تجديد العروض:', error);
-  }
-}
-
-await renewAllDeals();
     } catch (error) {
       console.error('❌ Periodic sync failed:', error);
     }
