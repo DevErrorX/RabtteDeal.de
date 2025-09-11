@@ -12,6 +12,7 @@ const axios = require('axios');
 require('dotenv').config();
 const admin = require("firebase-admin");
 let firebaseConfig;
+const crypto = require("crypto");
 
 if (process.env.NODE_ENV === 'production' || process.env.RAILWAY_ENVIRONMENT) {
   firebaseConfig = {
@@ -81,199 +82,340 @@ try {
   process.exit(1);
 }
 
+
 class SecurityManager {
-  constructor() {
-    this.rateLimits = new Map();
-    this.blockedIPs = new Set();
-    this.suspiciousActivity = new Map();
-    this.botDetection = new Map();
-    this.fingerprints = new Map();
-    this.cleanupInterval = setInterval(() => this.cleanup(), 300000);
-  }
+    constructor() {
+        this.rateLimits = new Map();
+        this.blockedIPs = new Set();
+        this.suspiciousActivity = new Map();
+        this.botDetection = new Map();
+        this.fingerprints = new Map();
+        this.requestHistory = new Map();
+        this.cleanupInterval = setInterval(() => this.cleanup(), 300000);
+        
+        // Advanced Protection System
+        this.domainMappings = new Map();
+        this.backupDomains = [
+            'rabattedeals.de',
+            'dealdeutschland.com', 
+            'angebote-jetzt.net'
+        ];
+        this.currentDomain = this.backupDomains[0];
+        this.initDomainRotation();
+        this.setupMonitoring();
+    }
 
-  checkRateLimit(identifier, limit = 50, window = 60000) { 
-    const now = Date.now();
-    const key = `rate_${identifier}`;
-    
-    if (!this.rateLimits.has(key)) {
-      this.rateLimits.set(key, [now]);
-      return true;
+    // Advanced Protection Methods
+    initDomainRotation() {
+        // تدوير الدومينات كل ساعة
+        setInterval(() => this.rotateDomains(), 3600000);
     }
     
-    const requests = this.rateLimits.get(key);
-    const recentRequests = requests.filter(time => now - time < window);
-    
-    if (recentRequests.length >= limit) {
-      return false;
+    rotateDomains() {
+        const currentDomain = this.backupDomains.shift();
+        this.backupDomains.push(currentDomain);
+        this.currentDomain = currentDomain;
+        console.log(`🔄 Rotated to domain: ${this.currentDomain}`);
     }
     
-    recentRequests.push(now);
-    this.rateLimits.set(key, recentRequests);
-    return true;
-  }
+    generateSecureLink(dealId, slug, originalUrl) {
+        // إنشاء رابط فريد وغير قابل للتخمين
+        const timestamp = Date.now();
+        const uniqueHash = crypto.createHmac('sha256', process.env.LINK_SECRET || WEBHOOK_SECRET)
+            .update(`${dealId}-${slug}-${timestamp}-${Math.random()}`)
+            .digest('hex')
+            .substring(0, 12);
+        
+        return {
+            publicUrl: `https://${this.currentDomain}/d/${slug}-${uniqueHash}`,
+            redirectUrl: originalUrl,
+            expires: timestamp + (24 * 60 * 60 * 1000), // 24 ساعة
+            hash: uniqueHash
+        };
+    }
+    
+    validateLink(linkHash, dealId) {
+        // البحث عن الصفقة
+        const deal = deals.find(d => d.id === dealId);
+        if (!deal || !deal.linkHash) return false;
+        
+        // التحقق من تطابق الهاش
+        return deal.linkHash === linkHash;
+    }
+    
+    setupMonitoring() {
+        // مراقبة أنماط الزيارات المشبوهة كل 5 دقائق
+        setInterval(() => this.detectScrapingPatterns(), 300000);
+    }
+    
+    async detectScrapingPatterns() {
+        try {
+            // هذا مثال - تحتاج إلى تكييفه مع نظام قاعدة البيانات الخاص بك
+            const clicks = []; // سيتم استبدال هذا بالاستعلام من قاعدة البيانات
+            
+            // تحليل أنماط النقرات
+            const ipStats = {};
+            clicks.forEach(click => {
+                if (!ipStats[click.ip]) {
+                    ipStats[click.ip] = { count: 0, timestamps: [] };
+                }
+                ipStats[click.ip].count++;
+                ipStats[click.ip].timestamps.push(click.timestamp);
+            });
+            
+            // الكشف عن النشاط المشبوه
+            for (const [ip, data] of Object.entries(ipStats)) {
+                if (data.count > 10) { // أكثر من 10 نقرات
+                    const timeDiff = Math.max(...data.timestamps) - Math.min(...data.timestamps);
+                    const clicksPerMinute = data.count / (timeDiff / (1000 * 60));
+                    
+                    if (clicksPerMinute > 2) { // أكثر من نقرة كل 30 ثانية
+                        this.blockIP(ip);
+                        console.log(`🚫 Blocked suspicious IP: ${ip}`);
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Error in detecting scraping patterns:', error);
+        }
+    }
+    
+    blockIP(ip) {
+        // إضافة IP إلى القائمة السوداء
+        this.blockedIPs.add(ip);
+        
+        // حظر IP لمدة 24 ساعة
+        setTimeout(() => {
+            this.blockedIPs.delete(ip);
+            console.log(`✅ Unblocked IP: ${ip}`);
+        }, 24 * 60 * 60 * 1000);
+    }
 
-  blockIdentifier(identifier, duration = 300000) {
-    this.blockedIPs.add(identifier);
-    setTimeout(() => this.blockedIPs.delete(identifier), duration);
-    console.warn(`🚫 Blocked identifier: ${identifier} for ${duration}ms`);
-  }
+    // الطرق الأصلية من SecurityManager
+    checkRateLimit(identifier, limit = 50, window = 60000) { 
+        const now = Date.now();
+        const key = `rate_${identifier}`;
+        
+        if (!this.rateLimits.has(key)) {
+            this.rateLimits.set(key, [now]);
+            return true;
+        }
+        
+        const requests = this.rateLimits.get(key);
+        const recentRequests = requests.filter(time => now - time < window);
+        
+        if (recentRequests.length >= limit) {
+            return false;
+        }
+        
+        recentRequests.push(now);
+        this.rateLimits.set(key, recentRequests);
+        return true;
+    }
 
-  isBlocked(identifier) {
-    return this.blockedIPs.has(identifier);
-  }
+    blockIdentifier(identifier, duration = 300000) {
+        this.blockedIPs.add(identifier);
+        setTimeout(() => this.blockedIPs.delete(identifier), duration);
+        console.warn(`🚫 Blocked identifier: ${identifier} for ${duration}ms`);
+    }
 
-  logSuspiciousActivity(identifier, activity) {
-    const key = `${identifier}-${activity}`;
-    const count = this.suspiciousActivity.get(key) || 0;
-    this.suspiciousActivity.set(key, count + 1);
-    
-    if (count > 3) {
-      this.blockIdentifier(identifier, 600000); 
-      console.error(`🚨 Suspicious activity detected: ${identifier} - ${activity}`);
+    isBlocked(identifier) {
+        return this.blockedIPs.has(identifier);
     }
-  }
 
-  detectBot(req) {
-    const userAgent = req.headers['user-agent'] || '';
-    const ip = req.ip;
-    
-    const botPatterns = [
-      /bot/i, /crawler/i, /spider/i, /scraper/i,
-      /curl/i, /wget/i, /python/i, /requests/i,
-      /postman/i, /insomnia/i, /httpie/i
-    ];
-    
-    if (botPatterns.some(pattern => pattern.test(userAgent))) {
-      this.logSuspiciousActivity(ip, 'bot_user_agent');
-      return true;
+    logSuspiciousActivity(identifier, activity) {
+        const key = `${identifier}-${activity}`;
+        const count = this.suspiciousActivity.get(key) || 0;
+        this.suspiciousActivity.set(key, count + 1);
+        
+        if (count > 3) {
+            this.blockIdentifier(identifier, 600000); 
+            console.error(`🚨 Suspicious activity detected: ${identifier} - ${activity}`);
+        }
     }
-    
-    const requiredHeaders = ['accept', 'accept-language', 'accept-encoding'];
-    const missingHeaders = requiredHeaders.filter(header => !req.headers[header]);
-    
-    if (missingHeaders.length > 1) {
-      this.logSuspiciousActivity(ip, 'missing_headers');
-      return true;
-    }
-    
-    const botKey = `bot_${ip}`;
-    const requests = this.botDetection.get(botKey) || [];
-    const now = Date.now();
-    const recentRequests = requests.filter(time => now - time < 10000); 
-    
-    if (recentRequests.length > 10) {
-      this.logSuspiciousActivity(ip, 'high_frequency_requests');
-      return true;
-    }
-    
-    recentRequests.push(now);
-    this.botDetection.set(botKey, recentRequests);
-    
-    return false;
-  }
 
-  generateFingerprint(req) {
-    const components = [
-      req.headers['user-agent'] || '',
-      req.headers['accept'] || '',
-      req.headers['accept-language'] || '',
-      req.headers['accept-encoding'] || '',
-      req.ip
-    ];
-    
-    return crypto.createHash('sha256')
-      .update(components.join('|'))
-      .digest('hex')
-      .substring(0, 16);
-  }
+    detectBot(req) {
+        const userAgent = req.headers['user-agent'] || '';
+        const ip = req.ip;
+        
+        const botPatterns = [
+            /bot/i, /crawler/i, /spider/i, /scraper/i,
+            /curl/i, /wget/i, /python/i, /requests/i,
+            /postman/i, /insomnia/i, /httpie/i
+        ];
+        
+        if (botPatterns.some(pattern => pattern.test(userAgent))) {
+            this.logSuspiciousActivity(ip, 'bot_user_agent');
+            return true;
+        }
+        
+        const requiredHeaders = ['accept', 'accept-language', 'accept-encoding'];
+        const missingHeaders = requiredHeaders.filter(header => !req.headers[header]);
+        
+        if (missingHeaders.length > 1) {
+            this.logSuspiciousActivity(ip, 'missing_headers');
+            return true;
+        }
+        
+        const botKey = `bot_${ip}`;
+        const requests = this.botDetection.get(botKey) || [];
+        const now = Date.now();
+        const recentRequests = requests.filter(time => now - time < 10000); 
+        
+        if (recentRequests.length > 10) {
+            this.logSuspiciousActivity(ip, 'high_frequency_requests');
+            return true;
+        }
+        
+        recentRequests.push(now);
+        this.botDetection.set(botKey, recentRequests);
+        
+        return false;
+    }
 
-  validateFingerprint(req) {
-    const fingerprint = this.generateFingerprint(req);
-    const ip = req.ip;
-    const stored = this.fingerprints.get(ip);
-    
-    if (!stored) {
-      this.fingerprints.set(ip, {
-        fingerprint,
-        firstSeen: Date.now(),
-        requestCount: 1
-      });
-      return true;
+    generateFingerprint(req) {
+        const components = [
+            req.headers['user-agent'] || '',
+            req.headers['accept'] || '',
+            req.headers['accept-language'] || '',
+            req.headers['accept-encoding'] || '',
+            req.ip
+        ];
+        
+        return crypto.createHash('sha256')
+            .update(components.join('|'))
+            .digest('hex')
+            .substring(0, 16);
     }
-    
-    stored.requestCount++;
-    
-    if (stored.fingerprint !== fingerprint) {
-      this.logSuspiciousActivity(ip, 'fingerprint_change');
-      stored.fingerprint = fingerprint;
-    }
-    
-    return true;
-  }
 
-  generateSecureToken() {
-    return crypto.randomBytes(32).toString('hex');
-  }
+    validateFingerprint(req) {
+        const fingerprint = this.generateFingerprint(req);
+        const ip = req.ip;
+        const stored = this.fingerprints.get(ip);
+        
+        if (!stored) {
+            this.fingerprints.set(ip, {
+                fingerprint,
+                firstSeen: Date.now(),
+                requestCount: 1
+            });
+            return true;
+        }
+        
+        stored.requestCount++;
+        
+        if (stored.fingerprint !== fingerprint) {
+            this.logSuspiciousActivity(ip, 'fingerprint_change');
+            stored.fingerprint = fingerprint;
+        }
+        
+        return true;
+    }
 
-  validateCSRF(token, session) {
-    return session && session.csrfToken === token;
-  }
+    generateSecureToken() {
+        return crypto.randomBytes(32).toString('hex');
+    }
 
-  cleanup() {
-    const now = Date.now();
-    const fiveMinutesAgo = now - 300000;
-    
-    for (const [identifier, requests] of this.rateLimits.entries()) {
-      const validRequests = requests.filter(time => time > fiveMinutesAgo);
-      if (validRequests.length === 0) {
-        this.rateLimits.delete(identifier);
-      } else {
-        this.rateLimits.set(identifier, validRequests);
-      }
+    validateCSRF(token, session) {
+        return session && session.csrfToken === token;
     }
-    
-    for (const [key, requests] of this.botDetection.entries()) {
-      const validRequests = requests.filter(time => time > fiveMinutesAgo);
-      if (validRequests.length === 0) {
-        this.botDetection.delete(key);
-      } else {
-        this.botDetection.set(key, validRequests);
-      }
-    }
-    
-    for (const [key, count] of this.suspiciousActivity.entries()) {
-      if (Math.random() > 0.9) {
-        this.suspiciousActivity.delete(key);
-      }
-    }
-    
-    for (const [ip, data] of this.fingerprints.entries()) {
-      if (now - data.firstSeen > 86400000) {
-        this.fingerprints.delete(ip);
-      }
-    }
-  }
 
-  generateProtectedUrl(dealId, ip) {
-  const timestamp = Date.now();
-  const token = crypto.createHmac('sha256', WEBHOOK_SECRET)
-    .update(`${dealId}-${ip}-${timestamp}`)
-    .digest('hex')
-    .substring(0, 16);
-  
-  return `/redirect/${dealId}?t=${timestamp}&token=${token}`;
+    cleanup() {
+        const now = Date.now();
+        const fiveMinutesAgo = now - 300000;
+        
+        for (const [identifier, requests] of this.rateLimits.entries()) {
+            const validRequests = requests.filter(time => time > fiveMinutesAgo);
+            if (validRequests.length === 0) {
+                this.rateLimits.delete(identifier);
+            } else {
+                this.rateLimits.set(identifier, validRequests);
+            }
+        }
+        
+        for (const [key, requests] of this.botDetection.entries()) {
+            const validRequests = requests.filter(time => time > fiveMinutesAgo);
+            if (validRequests.length === 0) {
+                this.botDetection.delete(key);
+            } else {
+                this.botDetection.set(key, validRequests);
+            }
+        }
+        
+        for (const [key, count] of this.suspiciousActivity.entries()) {
+            if (Math.random() > 0.9) {
+                this.suspiciousActivity.delete(key);
+            }
+        }
+        
+        for (const [ip, data] of this.fingerprints.entries()) {
+            if (now - data.firstSeen > 86400000) {
+                this.fingerprints.delete(ip);
+            }
+        }
+    }
+
+    generateProtectedUrl(dealId, ip) {
+        const timestamp = Date.now();
+        const token = crypto.createHmac('sha256', WEBHOOK_SECRET)
+            .update(`${dealId}-${ip}-${timestamp}`)
+            .digest('hex')
+            .substring(0, 16);
+        
+        return `/redirect/${dealId}?t=${timestamp}&token=${token}`;
+    }
+
+    validateProtectedUrl(dealId, token, timestamp, ip) {
+        const expectedToken = crypto.createHmac('sha256', WEBHOOK_SECRET)
+            .update(`${dealId}-${ip}-${timestamp}`)
+            .digest('hex')
+            .substring(0, 16);
+        
+        const isExpired = Date.now() - parseInt(timestamp) > 30000; 
+        return !isExpired && token === expectedToken;
+    }
+
+    // تحليل سلوك الطلبات
+    analyzeRequestBehavior(req) {
+        const ip = req.ip;
+        const path = req.path;
+        const userAgent = req.headers['user-agent'] || '';
+        const referrer = req.headers['referer'] || '';
+        
+        // تتبع تردد الطلبات
+        const requestKey = `req_${ip}`;
+        const now = Date.now();
+        const requests = this.requestHistory.get(requestKey) || [];
+        
+        // الاحتفاظ فقط بالطلبات من آخر 5 دقائق
+        const recentRequests = requests.filter(time => now - time < 300000);
+        recentRequests.push(now);
+        this.requestHistory.set(requestKey, recentRequests);
+        
+        // اكتشاف أنماط السحب الآلي
+        if (recentRequests.length > 30) { // أكثر من 30 طلب في 5 دقائق
+            this.logSuspiciousActivity(ip, 'high_frequency_requests');
+            return false;
+        }
+        
+        // اكتشاف وكلاء مستخدمين مشبوهين أو مفقودين
+        if (!userAgent || userAgent.length < 10 || 
+            userAgent === 'Python-urllib/3.' || 
+            userAgent === 'Java/1.') {
+            this.logSuspiciousActivity(ip, 'suspicious_user_agent');
+            return false;
+        }
+        
+        // اكتشاف الوصول المباشر لصفحات الصفقات دون إحالة
+        if (path.startsWith('/d/') && !referrer.includes('t.me/RabatteDealDE')) {
+            this.logSuspiciousActivity(ip, 'direct_deal_access');
+            return false;
+        }
+        
+        return true;
+    }
 }
 
-  validateProtectedUrl(dealId, token, timestamp, ip) {
-  const expectedToken = crypto.createHmac('sha256', WEBHOOK_SECRET)
-    .update(`${dealId}-${ip}-${timestamp}`)
-    .digest('hex')
-    .substring(0, 16);
-  
-  const isExpired = Date.now() - parseInt(timestamp) > 30000; 
-  return !isExpired && token === expectedToken;
-}
-}
 
 class InputValidator {
   static sanitizeText(input, maxLength = 1000) {
@@ -1077,182 +1219,188 @@ bot.sendMessage(chatId, "✅ تم حفظ رابط أمازون!\n\nأرسل صو
   }
 }
 async function completeDealAdd(chatId, userId, data) {
-  try {
-    const currentSession = userSessions.get(userId);
-    if (!currentSession || currentSession.action !== "add_deal") {
-      throw new Error("Session validation failed");
-    }
-    const validationErrors = InputValidator.validateDealData(data);
-    if (validationErrors.length > 0) {
-      console.error('❌ Validation failed:', validationErrors);
-      throw new Error(`Validation failed: ${validationErrors.join(', ')}`);
-    }
-    const dealId = generateDealId();
-    const slug = generateSlug(data.name);
-    
-    const discount = Math.round(
-      ((data.originalPrice - data.dealPrice) / data.originalPrice) * 100
-    );
-
-    const badge = discount >= 70 ? "HOT" : discount >= 50 ? "FIRE" : discount >= 30 ? "DEAL" : "SAVE";
-
-    const expirationTime = Date.now() + (2000 * 24 * 60 * 60 * 1000); // 2000 يوم
-
-    const rating = (Math.random() * 1.5 + 3.5).toFixed(1); // 3.5 to 5.0
-    const reviews = Math.floor(Math.random() * 2000) + 100; // 100 to 2100 reviews
-
-    // Create the complete deal object
-    const newDeal = {
-      // Basic identifiers
-      id: dealId,
-      slug: slug,
-      
-      // Deal information
-      title: data.name.trim(),
-      description: data.description.trim(),
-      
-      // Pricing
-      price: parseFloat(data.dealPrice),
-      oldPrice: parseFloat(data.originalPrice),
-      discount: discount,
-      
-      // Classification
-      category: data.category.toLowerCase(),
-      
-      // URLs and media
-      amazonUrl: data.amazonUrl,
-      imageUrl: `/secure-image/${dealId}`,
-      imageInfo: data.imageInfo || null,
-      
-      // Additional features
-      coupon: data.coupon && data.coupon.trim() ? data.coupon.trim() : null,
-      
-      // Social proof
-      rating: parseFloat(rating),
-      reviews: reviews,
-      
-      // Status and timing
-      timer: expirationTime,
-      badge: badge,
-      isActive: true,
-      isFeatured: discount >= 60,
-      
-      // Metadata
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      createdBy: userId,
-      
-      // SEO and tracking
-      views: 0,
-      clicks: 0,
-      
-      // Additional fields for frontend
-      currency: "EUR",
-      availability: "In Stock",
-      shipping: discount >= 50 ? "Free Shipping" : null
-    };
-
-    console.log(`✅ Created deal object:`, {
-      id: newDeal.id,
-      slug: newDeal.slug,
-      title: newDeal.title,
-      discount: newDeal.discount,
-      badge: newDeal.badge,
-      hasImageInfo: !!newDeal.imageInfo,
-      expiresAt: new Date(newDeal.timer).toISOString()
-    });
-
-    // Add deal to array
-    deals.push(newDeal);
-    
-    // Save deals to file
-    await saveDeals();
-    console.log(`💾 Deal saved successfully. Total deals: ${deals.length}`);
-
-    // Clean up user session
-    userSessions.delete(userId);
-
-    // Generate deal URLs
-    const dealUrl = `${WEBSITE_URL}/deal/${slug}`;
-    const redirectUrl = `${WEBSITE_URL}/redirect/${dealId}`;
-    const apiUrl = `${WEBSITE_URL}/api/deal/${slug}`;
-
-    // Calculate savings
-    const savings = (data.originalPrice - data.dealPrice).toFixed(2);
-    const savingsPercent = discount;
-
-    // Create success message
-    const successMessage = `✅ تم إضافة العرض بنجاح!\n\n` +
-      `🆔 معرف العرض: ${dealId}\n` +
-      `📝 الاسم: ${data.name}\n` +
-      `💰 السعر: €${data.dealPrice} (كان €${data.originalPrice})\n` +
-      `💵 التوفير: €${savings} (${savingsPercent}%)\n` +
-      `🏷️ الشارة: ${badge}\n` +
-      `📂 التصنيف: ${data.category}\n` +
-      `🎫 القسيمة: ${data.coupon || 'لا يوجد'}\n` +
-      `⭐ التقييم: ${rating}/5.0 (${reviews} مراجعة)\n` +
-      `⏰ ينتهي في: 24 ساعة\n` +
-      `🚚 الشحن: ${newDeal.shipping || 'عادي'}\n\n` +
-      `🔗 روابط العرض:\n` +
-      `📱 الصفحة الرئيسية: ${dealUrl}\n` +
-      `🔄 رابط التوجيه: ${redirectUrl}\n` +
-      `🔧 API: ${apiUrl}\n\n` +
-      `🛠️ للتحكم في العرض:\n` +
-      `• للتعديل: استخدم "✏️ Change Deal" مع المعرف "${dealId}"\n` +
-      `• للحذف: استخدم "🗑️ Delete Deal" مع المعرف "${dealId}"`;
-
-    // Send success message
-    await bot.sendMessage(chatId, successMessage, { 
-      reply_markup: adminKeyboard,
-      parse_mode: 'HTML'
-    });
-
-    // Log successful creation
-    console.log(`🎉 Deal "${data.name}" (${dealId}) created successfully by admin ${userId}`);
-    console.log(`🔗 Deal accessible at: ${dealUrl}`);
-    console.log(`🛍️ Amazon redirect: ${data.amazonUrl}`);
-
-    // Optional: Send a preview of the deal (if you want to show how it looks)
     try {
-      const previewMessage = `📋 معاينة العرض:\n\n` +
-        `🛍️ ${newDeal.title}\n` +
-        `💰 ${newDeal.price}€ ⚡ بدلاً من ${newDeal.oldPrice}€\n` +
-        `🔥 توفير ${savingsPercent}% • ${badge}\n` +
-        `⭐ ${newDeal.rating}/5 (${newDeal.reviews} مراجعة)\n` +
-        `📦 ${newDeal.category} • ${newDeal.availability}\n` +
-        `${newDeal.coupon ? `🎫 كود الخصم: ${newDeal.coupon}\n` : ''}` +
-        `${newDeal.shipping ? `🚚 ${newDeal.shipping}\n` : ''}` +
-        `⏰ ينتهي خلال 24 ساعة`;
-  
-      userSessions.delete(userId);
-      await bot.sendMessage(chatId, previewMessage);
-    } catch (previewError) {
-      console.warn('⚠️ Could not send preview message:', previewError.message);
-    }
+        const currentSession = userSessions.get(userId);
+        if (!currentSession || currentSession.action !== "add_deal") {
+            throw new Error("Session validation failed");
+        }
+        const validationErrors = InputValidator.validateDealData(data);
+        if (validationErrors.length > 0) {
+            console.error('❌ Validation failed:', validationErrors);
+            throw new Error(`Validation failed: ${validationErrors.join(', ')}`);
+        }
+        const dealId = generateDealId();
+        const slug = generateSlug(data.name);
+        
+        const discount = Math.round(
+            ((data.originalPrice - data.dealPrice) / data.originalPrice) * 100
+        );
 
-  } catch (error) {
-    console.error("❌ Error completing deal add:", error);
-    
-    // Clean up session on error
-    userSessions.delete(userId);
-    
-    // Send detailed error message
-    let errorMessage = "❌ حدث خطأ أثناء حفظ العرض:\n\n";
-    
-    if (error.message.includes('Validation failed')) {
-      errorMessage += `🔍 خطأ في التحقق من البيانات:\n${error.message.replace('Validation failed: ', '')}`;
-    } else if (error.message.includes('ENOENT') || error.message.includes('permission')) {
-      errorMessage += "💾 خطأ في حفظ الملف. تحقق من الصلاحيات.";
-    } else if (error.message.includes('network') || error.message.includes('timeout')) {
-      errorMessage += "🌐 خطأ في الاتصال. يرجى المحاولة مرة أخرى.";
-    } else {
-      errorMessage += `⚠️ ${error.message}`;
+        const badge = discount >= 70 ? "HOT" : discount >= 50 ? "FIRE" : discount >= 30 ? "DEAL" : "SAVE";
+
+        const expirationTime = Date.now() + (2000 * 24 * 60 * 60 * 1000); // 2000 يوم
+
+        const rating = (Math.random() * 1.5 + 3.5).toFixed(1); // 3.5 to 5.0
+        const reviews = Math.floor(Math.random() * 2000) + 100; // 100 to 2100 reviews
+
+        // إنشاء رابط آمن باستخدام النظام المتقدم
+        const secureLink = security.generateSecureLink(
+            dealId, 
+            slug, 
+            data.amazonUrl
+        );
+
+        // Create the complete deal object
+        const newDeal = {
+            // Basic identifiers
+            id: dealId,
+            slug: slug,
+            
+            // Deal information
+            title: data.name.trim(),
+            description: data.description.trim(),
+            
+            // Pricing
+            price: parseFloat(data.dealPrice),
+            oldPrice: parseFloat(data.originalPrice),
+            discount: discount,
+            
+            // Classification
+            category: data.category.toLowerCase(),
+            
+            // URLs and media
+            amazonUrl: data.amazonUrl,
+            imageUrl: `/secure-image/${dealId}`,
+            imageInfo: data.imageInfo || null,
+            
+            // Additional features
+            coupon: data.coupon && data.coupon.trim() ? data.coupon.trim() : null,
+            
+            // Social proof
+            rating: parseFloat(rating),
+            reviews: reviews,
+            
+            // Status and timing
+            timer: expirationTime,
+            badge: badge,
+            isActive: true,
+            isFeatured: discount >= 60,
+            
+            // Metadata
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            createdBy: userId,
+            
+            // SEO and tracking
+            views: 0,
+            clicks: 0,
+            
+            // Additional fields for frontend
+            currency: "EUR",
+            availability: "In Stock",
+            shipping: discount >= 50 ? "Free Shipping" : null,
+            
+            // Secure link system
+            secureRedirect: secureLink.redirectUrl,
+            linkExpires: secureLink.expires,
+            linkHash: secureLink.hash
+        };
+
+        console.log(`✅ Created deal object:`, {
+            id: newDeal.id,
+            slug: newDeal.slug,
+            title: newDeal.title,
+            discount: newDeal.discount,
+            badge: newDeal.badge,
+            hasImageInfo: !!newDeal.imageInfo,
+            expiresAt: new Date(newDeal.timer).toISOString(),
+            secureUrl: secureLink.publicUrl
+        });
+
+        // Add deal to array
+        deals.push(newDeal);
+        
+        // Save deals to file
+        await saveDeals();
+        console.log(`💾 Deal saved successfully. Total deals: ${deals.length}`);
+
+        // Clean up user session
+        userSessions.delete(userId);
+
+        // Generate deal URLs
+        const dealUrl = secureLink.publicUrl;
+        const apiUrl = `${WEBSITE_URL}/api/deal/${slug}`;
+
+        // Calculate savings
+        const savings = (data.originalPrice - data.dealPrice).toFixed(2);
+        const savingsPercent = discount;
+
+        // Create success message
+        const successMessage = `✅ تم إضافة العرض بنجاح!\n\n` +
+            `🆔 معرف العرض: ${dealId}\n` +
+            `📝 الاسم: ${data.name}\n` +
+            `💰 السعر: €${data.dealPrice} (كان €${data.originalPrice})\n` +
+            `💵 التوفير: €${savings} (${savingsPercent}%)\n` +
+            `🏷️ الشارة: ${badge}\n` +
+            `📂 التصنيف: ${data.category}\n` +
+            `🎫 القسيمة: ${data.coupon || 'لا يوجد'}\n` +
+            `⭐ التقييم: ${rating}/5.0 (${reviews} مراجعة)\n` +
+            `⏰ ينتهي في: 24 ساعة\n` +
+            `🚚 الشحن: ${newDeal.shipping || 'عادي'}\n\n` +
+            `🔗 رابط العرض الآمن:\n${dealUrl}\n\n` +
+            `🛡️ هذا الرابط محمي بمنع السرقة التلقائية`;
+
+        // Send success message
+        await bot.sendMessage(chatId, successMessage, { 
+            reply_markup: adminKeyboard,
+            parse_mode: 'HTML'
+        });
+
+        // Log successful creation
+        console.log(`🎉 Deal "${data.name}" (${dealId}) created successfully by admin ${userId}`);
+        console.log(`🔗 Deal accessible at: ${dealUrl}`);
+        console.log(`🛍️ Amazon redirect: ${data.amazonUrl}`);
+
+        // Optional: Send a preview of the deal
+        try {
+            const previewMessage = `📋 معاينة العرض:\n\n` +
+                `🛍️ ${newDeal.title}\n` +
+                `💰 ${newDeal.price}€ ⚡ بدلاً من ${newDeal.oldPrice}€\n` +
+                `🔥 توفير ${savingsPercent}% • ${badge}\n` +
+                `⭐ ${newDeal.rating}/5 (${newDeal.reviews} مراجعة)\n` +
+                `📦 ${newDeal.category} • ${newDeal.availability}\n` +
+                `${newDeal.coupon ? `🎫 كود الخصم: ${newDeal.coupon}\n` : ''}` +
+                `${newDeal.shipping ? `🚚 ${newDeal.shipping}\n` : ''}` +
+                `⏰ ينتهي خلال 24 ساعة`;
+        
+            await bot.sendMessage(chatId, previewMessage);
+        } catch (previewError) {
+            console.warn('⚠️ Could not send preview message:', previewError.message);
+        }
+
+    } catch (error) {
+        console.error("❌ Error completing deal add:", error);
+        
+        // Clean up session on error
+        userSessions.delete(userId);
+        
+        // Send detailed error message
+        let errorMessage = "❌ حدث خطأ أثناء حفظ العرض:\n\n";
+        
+        if (error.message.includes('Validation failed')) {
+            errorMessage += `🔍 خطأ في التحقق من البيانات:\n${error.message.replace('Validation failed: ', '')}`;
+        } else if (error.message.includes('ENOENT') || error.message.includes('permission')) {
+            errorMessage += "💾 خطأ في حفظ الملف. تحقق من الصلاحيات.";
+        } else if (error.message.includes('network') || error.message.includes('timeout')) {
+            errorMessage += "🌐 خطأ في الاتصال. يرجى المحاولة مرة أخرى.";
+        } else {
+            errorMessage += `⚠️ ${error.message}`;
+        }
+        
+        errorMessage += "\n\nيرجى المحاولة مرة أخرى أو الاتصال بالدعم الفني.";
+        
+        await bot.sendMessage(chatId, errorMessage, { reply_markup: adminKeyboard });
     }
-    
-    errorMessage += "\n\nيرجى المحاولة مرة أخرى أو الاتصال بالدعم الفني.";
-    
-    await bot.sendMessage(chatId, errorMessage, { reply_markup: adminKeyboard });
-  }
 }
 async function startDeleteDeal(chatId, userId) {
   if (deals.length === 0) {
@@ -1908,7 +2056,51 @@ app.get('/api/deal/:slug', apiLimiter, async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
+// في ملف bot.js، إضافة endpoint جديد
+app.get('/d/:slugHash', async (req, res) => {
+    try {
+        const slugHash = req.params.slugHash;
+        const parts = slugHash.split('-');
+        const slug = parts.slice(0, -1).join('-');
+        const hash = parts[parts.length - 1];
+        
+        // البحث عن الصفقة باستخدام النظام الجديد
+        const deal = deals.find(d => {
+            const dealSlug = d.slug || generateSlug(d.title);
+            return dealSlug === slug && advancedProtection.validateLink(hash, d.id);
+        });
+        
+        if (!deal || !deal.secureRedirect) {
+            // توجيه غير ملحوظ للصفحة الرئيسية
+            return res.redirect('/');
+        }
+        
+        // تسجيل عدد النقرات
+        await recordClick(deal.id, req.ip);
+        
+        // توجيه مباشر إلى أمازون
+        res.redirect(deal.secureRedirect);
+        
+    } catch (error) {
+        // في حالة أي خطأ، توجيه إلى الصفحة الرئيسية
+        res.redirect('/');
+    }
+});
 
+// دالة تسجيل النقرات
+async function recordClick(dealId, ip) {
+    try {
+        // استخدام قاعدة البيانات أو نظام التخزين المناسب
+        await db.collection('clicks').insertOne({
+            dealId,
+            ip,
+            timestamp: new Date(),
+            userAgent: req.headers['user-agent']
+        });
+    } catch (error) {
+        console.error('Error recording click:', error);
+    }
+}
 
 app.use((req, res, next) => {
   const blockedFiles = [
