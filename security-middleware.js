@@ -528,11 +528,34 @@ class AdvancedSecurityManager {
     stored.requestCount++;
     
     if (stored.fingerprint !== fingerprint) {
-      this.logSuspiciousActivity(ip, 'fingerprint_change');
+      // Only log as suspicious if there are multiple rapid changes
+      const now = Date.now();
+      const timeSinceFirstSeen = now - stored.firstSeen;
+      
+      // If it's been more than 1 hour, allow fingerprint changes (browser updates, etc.)
+      if (timeSinceFirstSeen > 3600000) {
+        stored.fingerprint = fingerprint;
+        stored.firstSeen = now;
+      }
+      // If multiple changes in short time, it's suspicious
+      else if (stored.requestCount > 10 && timeSinceFirstSeen < 300000) {
+        this.logSuspiciousActivity(ip, 'rapid_fingerprint_changes');
+      }
+      
       stored.fingerprint = fingerprint;
     }
     
     return true;
+  }
+
+  // Generate secure token method for compatibility
+  generateSecureToken() {
+    return crypto.randomBytes(32).toString('hex');
+  }
+
+  // CSRF token validation method for compatibility
+  validateCSRF(token, session) {
+    return session && session.csrfToken === token;
   }
 }
 
