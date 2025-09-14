@@ -3,12 +3,13 @@ const express = require("express");
 const fs = require("fs").promises;
 const path = require("path");
 const { spawn } = require("child_process");
-const crypto = require("crypto");
-const rateLimit = require("express-rate-limit");
-const helmet = require("helmet");
-const xss = require("xss");
-const validator = require("validator");
+const crypto = require('crypto');
+const rateLimit = require('express-rate-limit');
+const helmet = require('helmet');
+const xss = require('xss');
+const validator = require('validator');
 const axios = require('axios');
+const AdvancedSecurityManager = require('./security-middleware');
 require('dotenv').config();
 const admin = require("firebase-admin");
 let firebaseConfig;
@@ -375,7 +376,9 @@ if (!data.category || !validCategories.includes(data.category.toLowerCase())) {
 }
 
 
-const security = new SecurityManager();
+const security = new AdvancedSecurityManager();
+// Keep the old SecurityManager class for backward compatibility
+const legacySecurity = new SecurityManager();
 
 let deals = [];
 let userSessions = new Map();
@@ -541,6 +544,22 @@ app.use('/redirect', (req, res, next) => {
   res.setHeader('Referrer-Policy', 'no-referrer');
   next();
 });
+
+// Advanced security middleware for secure redirects
+app.use('/secure-redirect', (req, res, next) => {
+  res.setHeader('CF-Cache-Status', 'DYNAMIC');
+  res.setHeader('CF-Ray', generateCloudflareRay());
+  res.setHeader('Server', 'cloudflare');
+  res.setHeader('X-Robots-Tag', 'noindex, nofollow');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+  next();
+});
+
+// Advanced security API routes
+app.use('/api/security', apiLimiter);
 
 function generateCloudflareRay() {
   const chars = '0123456789abcdef';
@@ -1734,6 +1753,17 @@ app.get('/redirect/:dealId', redirectLimiter, async (req, res) => {
   try {
     const dealId = InputValidator.sanitizeText(req.params.dealId, 50);
     
+    // Check for honeypot traps
+    if (security.isHoneypot(`/redirect/${dealId}`) || dealId.includes('honey_')) {
+      console.warn(`🍯 Honeypot accessed: ${dealId} from IP: ${req.ip}`);
+      security.logSuspiciousActivity(req.ip, 'honeypot_access');
+      security.blockIdentifier(req.ip, 1800000); // Block for 30 minutes
+      return res.status(403).send(generateErrorPage(
+        "Access Denied",
+        "Suspicious activity detected. Access has been restricted."
+      ));
+    }
+    
     if (!dealId || !/^[0-9a-f]{8,}$/i.test(dealId)) {
       return res.status(400).send(generateErrorPage(
         "Invalid Deal ID",
@@ -1966,6 +1996,244 @@ app.get('/api/deals/stream', (req, res) => {
   req.on('close', () => {
     dealsRef.off('value');
   });
+});
+
+// Advanced Security API Endpoints
+app.post('/api/security/behavior', (req, res) => {
+  try {
+    const { sessionId, behaviorData, fingerprint } = req.body;
+    
+    if (!sessionId || !behaviorData || !fingerprint) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+    
+    const isHuman = security.analyzeBehavior(sessionId, behaviorData);
+    res.json({ humanLike: isHuman, sessionId });
+  } catch (error) {
+    console.error('Behavior analysis error:', error);
+    res.status(500).json({ error: 'Analysis failed' });
+  }
+});
+
+app.post('/api/security/protect-url', (req, res) => {
+  try {
+    const { dealId, originalUrl, sessionId, fingerprint, completedChallenges } = req.body;
+    
+    if (!dealId || !sessionId || !fingerprint) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+    
+    // Validate session and challenges
+    if (!security.isTrustedSession(sessionId)) {
+      return res.status(403).json({ error: 'Session not verified' });
+    }
+    
+    if (!completedChallenges || completedChallenges.length < 2) {
+      return res.status(403).json({ error: 'Insufficient challenges completed' });
+    }
+    
+    // Find the deal
+    const deal = deals.find(d => d.id === dealId);
+    if (!deal) {
+      return res.status(404).json({ error: 'Deal not found' });
+    }
+    
+    // Generate protected URL
+    const protectedUrl = security.createProtectedRedirectUrl(dealId, deal.amazonUrl, req);
+    
+    res.json({ protectedUrl });
+  } catch (error) {
+    console.error('URL protection error:', error);
+    res.status(500).json({ error: 'Protection failed' });
+  }
+});
+
+app.post('/api/security/violation', (req, res) => {
+  try {
+    const { type, sessionId, fingerprint, timestamp, behaviorData } = req.body;
+    
+    console.warn(`🚨 Security violation: ${type} from session ${sessionId}`);
+    
+    // Log the violation
+    security.logSuspiciousActivity(req.ip, type);
+    
+    // Additional blocking for severe violations
+    const severeViolations = ['honeypot_clicked', 'devtools_opened', 'inspection_attempt'];
+    if (severeViolations.some(v => type.includes(v))) {
+      security.blockIdentifier(req.ip, 600000); // 10 minutes
+    }
+    
+    res.json({ logged: true });
+  } catch (error) {
+    console.error('Violation logging error:', error);
+    res.status(500).json({ error: 'Logging failed' });
+  }
+});
+
+// Invisible security validation endpoint
+app.post('/api/security/validate-session', (req, res) => {
+  try {
+    const { sessionId, fingerprint, behaviorScore, isHuman, validationTime } = req.body;
+    
+    if (!sessionId || !fingerprint || typeof behaviorScore !== 'number') {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+    
+    // Additional server-side validation
+    let serverValidation = isHuman;
+    
+    // Check for headless browser indicators
+    const userAgent = req.headers['user-agent'] || '';
+    if (userAgent.includes('HeadlessChrome') || userAgent.includes('PhantomJS')) {
+      serverValidation = false;
+    }
+    
+    // Check for missing expected headers
+    const requiredHeaders = ['accept', 'accept-language', 'accept-encoding'];
+    const missingHeaders = requiredHeaders.filter(h => !req.headers[h]);
+    if (missingHeaders.length > 2) {
+      serverValidation = false;
+    }
+    
+    if (serverValidation && behaviorScore >= 60) {
+      // Register trusted session
+      security.trustedSessions.set(sessionId, {
+        verified: Date.now(),
+        expires: Date.now() + (24 * 60 * 60 * 1000), // 24 hours
+        fingerprint,
+        behaviorScore,
+        ip: req.ip
+      });
+      
+      console.log(`✅ Session validated: ${sessionId} (score: ${behaviorScore})`);
+    } else {
+      console.warn(`🚫 Session rejected: ${sessionId} (score: ${behaviorScore})`);
+      security.logSuspiciousActivity(req.ip, 'session_validation_failed');
+    }
+    
+    res.json({ 
+      validated: serverValidation,
+      sessionId,
+      behaviorScore
+    });
+  } catch (error) {
+    console.error('Session validation error:', error);
+    res.status(500).json({ error: 'Validation failed' });
+  }
+});
+
+// Get protected URL for invisible security
+app.post('/api/security/get-protected-url', (req, res) => {
+  try {
+    const { dealId, sessionId, fingerprint, behaviorScore } = req.body;
+    
+    if (!dealId || !sessionId || !fingerprint) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+    
+    // Check if session is trusted
+    if (!security.isTrustedSession(sessionId)) {
+      security.logSuspiciousActivity(req.ip, 'untrusted_session');
+      return res.status(403).json({ error: 'Session not verified' });
+    }
+    
+    // Find the deal
+    const deal = deals.find(d => d.id === dealId);
+    if (!deal) {
+      return res.status(404).json({ error: 'Deal not found' });
+    }
+    
+    // Check if deal is still valid
+    if (deal.timer <= Date.now()) {
+      return res.status(410).json({ error: 'Deal expired' });
+    }
+    
+    // Generate protected URL
+    const protectedUrl = security.createProtectedRedirectUrl(dealId, deal.amazonUrl, req);
+    
+    console.log(`🔗 Protected URL generated for deal ${dealId}`);
+    
+    res.json({ protectedUrl });
+  } catch (error) {
+    console.error('Protected URL generation error:', error);
+    res.status(500).json({ error: 'URL generation failed' });
+  }
+});
+
+// Secure redirect handler
+app.get('/secure-redirect/:key', (req, res) => {
+  try {
+    const { key } = req.params;
+    const { token, session } = req.query;
+    
+    if (!key || !token || !session) {
+      return res.status(400).send(generateErrorPage(
+        'Invalid Request',
+        'Missing required parameters'
+      ));
+    }
+    
+    // Get redirect data
+    const redirectData = security.tempRedirects.get(key);
+    if (!redirectData) {
+      return res.status(404).send(generateErrorPage(
+        'Link Expired',
+        'This secure link has expired or is invalid'
+      ));
+    }
+    
+    // Validate token
+    const tokenValidation = security.validateProtectionToken(
+      token, 
+      redirectData.dealId, 
+      req.ip, 
+      req.headers['user-agent'] || ''
+    );
+    
+    if (!tokenValidation.valid) {
+      security.logSuspiciousActivity(req.ip, 'invalid_token');
+      return res.status(403).send(generateErrorPage(
+        'Access Denied',
+        'Security validation failed'
+      ));
+    }
+    
+    // Validate session
+    if (redirectData.sessionId !== session) {
+      security.logSuspiciousActivity(req.ip, 'session_mismatch');
+      return res.status(403).send(generateErrorPage(
+        'Access Denied',
+        'Session validation failed'
+      ));
+    }
+    
+    // Check if session is trusted
+    if (!security.isTrustedSession(session)) {
+      return res.status(403).send(generateErrorPage(
+        'Access Denied',
+        'Session not verified'
+      ));
+    }
+    
+    // Clean up used redirect
+    security.tempRedirects.delete(key);
+    
+    // Log successful redirect
+    console.log(`✅ Secure redirect: ${redirectData.dealId} -> ${redirectData.amazonUrl}`);
+    
+    // Redirect to Amazon
+    res.setHeader('X-Robots-Tag', 'noindex, nofollow');
+    res.setHeader('Referrer-Policy', 'no-referrer');
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+    res.redirect(302, redirectData.amazonUrl);
+    
+  } catch (error) {
+    console.error('Secure redirect error:', error);
+    res.status(500).send(generateErrorPage(
+      'Server Error',
+      'An error occurred during redirect'
+    ));
+  }
 });
 app.get('/secure-image/:id', async (req, res) => {
   try {
