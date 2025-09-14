@@ -377,8 +377,6 @@ if (!data.category || !validCategories.includes(data.category.toLowerCase())) {
 
 
 const security = new AdvancedSecurityManager();
-// Keep the old SecurityManager class for backward compatibility
-const legacySecurity = new SecurityManager();
 
 let deals = [];
 let userSessions = new Map();
@@ -435,8 +433,9 @@ const redirectLimiter = rateLimit({
   max: 50, 
   message: generateErrorPage("Rate Limit Exceeded", "Please wait before making more requests"),
   skip: (req) => security.isBlocked(req.ip),
-  onLimitReached: (req) => {
+  handler: (req, res) => {
     security.logSuspiciousActivity(req.ip, 'redirect_rate_limit');
+    res.status(429).send(generateErrorPage("Rate Limit Exceeded", "Please wait before making more requests"));
   }
 });
 
