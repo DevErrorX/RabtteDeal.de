@@ -10,6 +10,10 @@ class AdvancedSecurityManager {
     this.geoBlacklist = new Set(); // Suspicious locations
     this.botSignatures = new Map(); // Known bot patterns
     this.rotatingSecrets = []; // Multiple rotating secrets
+    this.rateLimits = new Map(); // Rate limiting data
+    this.blockedIPs = new Set(); // Blocked IP addresses
+    this.suspiciousActivity = new Map(); // Suspicious activity tracking
+    this.tempRedirects = new Map(); // Temporary redirect storage
     
     // Initialize rotating secrets
     this.initializeRotatingSecrets();
@@ -293,7 +297,7 @@ class AdvancedSecurityManager {
       req.headers['sec-fetch-dest'] || '',
       req.headers['dnt'] || '',
       req.headers['upgrade-insecure-requests'] || '',
-      req.connection.remoteAddress || req.ip
+(req.connection && req.connection.remoteAddress) || req.ip
     ];
 
     return crypto.createHash('sha256')
@@ -372,6 +376,7 @@ class AdvancedSecurityManager {
   // Clean up old data
   cleanup() {
     const now = Date.now();
+    const fiveMinutesAgo = now - 300000;
     
     // Clean up challenges
     for (const [sessionId, challenge] of this.challenges.entries()) {
@@ -394,18 +399,73 @@ class AdvancedSecurityManager {
       }
     }
 
+    // Clean up rate limits
+    for (const [identifier, requests] of this.rateLimits.entries()) {
+      const validRequests = requests.filter(time => time > fiveMinutesAgo);
+      if (validRequests.length === 0) {
+        this.rateLimits.delete(identifier);
+      } else {
+        this.rateLimits.set(identifier, validRequests);
+      }
+    }
+
     // Clean up temp redirects
-    if (this.tempRedirects) {
-      for (const [key, redirect] of this.tempRedirects.entries()) {
-        if (now > redirect.expires) {
-          this.tempRedirects.delete(key);
-        }
+    for (const [key, redirect] of this.tempRedirects.entries()) {
+      if (now > redirect.expires) {
+        this.tempRedirects.delete(key);
+      }
+    }
+    
+    // Clean up suspicious activity (randomly to prevent memory buildup)
+    for (const [key, count] of this.suspiciousActivity.entries()) {
+      if (Math.random() > 0.9) {
+        this.suspiciousActivity.delete(key);
       }
     }
   }
-}
 
-// Initialize with temporary redirects storage
-AdvancedSecurityManager.prototype.tempRedirects = new Map();
+  // Compatibility methods for existing code
+  checkRateLimit(identifier, limit = 50, window = 60000) {
+    const now = Date.now();
+    const key = `rate_${identifier}`;
+    
+    if (!this.rateLimits.has(key)) {
+      this.rateLimits.set(key, [now]);
+      return true;
+    }
+    
+    const requests = this.rateLimits.get(key);
+    const recentRequests = requests.filter(time => now - time < window);
+    
+    if (recentRequests.length >= limit) {
+      return false;
+    }
+    
+    recentRequests.push(now);
+    this.rateLimits.set(key, recentRequests);
+    return true;
+  }
+
+  blockIdentifier(identifier, duration = 300000) {
+    this.blockedIPs.add(identifier);
+    setTimeout(() => this.blockedIPs.delete(identifier), duration);
+    console.warn(`🚫 Blocked identifier: ${identifier} for ${duration}ms`);
+  }
+
+  isBlocked(identifier) {
+    return this.blockedIPs.has(identifier);
+  }
+
+  logSuspiciousActivity(identifier, activity) {
+    const key = `${identifier}-${activity}`;
+    const count = this.suspiciousActivity.get(key) || 0;
+    this.suspiciousActivity.set(key, count + 1);
+    
+    if (count > 3) {
+      this.blockIdentifier(identifier, 600000);
+      console.error(`🚨 Suspicious activity detected: ${identifier} - ${activity}`);
+    }
+  }
+}
 
 module.exports = AdvancedSecurityManager;
