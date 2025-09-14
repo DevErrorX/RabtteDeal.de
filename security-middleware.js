@@ -14,6 +14,7 @@ class AdvancedSecurityManager {
     this.blockedIPs = new Set(); // Blocked IP addresses
     this.suspiciousActivity = new Map(); // Suspicious activity tracking
     this.tempRedirects = new Map(); // Temporary redirect storage
+    this.fingerprints = new Map(); // Browser fingerprints
     
     // Initialize rotating secrets
     this.initializeRotatingSecrets();
@@ -422,6 +423,13 @@ class AdvancedSecurityManager {
         this.suspiciousActivity.delete(key);
       }
     }
+    
+    // Clean up fingerprints older than 24 hours
+    for (const [ip, data] of this.fingerprints.entries()) {
+      if (now - data.firstSeen > 86400000) { // 24 hours
+        this.fingerprints.delete(ip);
+      }
+    }
   }
 
   // Compatibility methods for existing code
@@ -465,6 +473,66 @@ class AdvancedSecurityManager {
       this.blockIdentifier(identifier, 600000);
       console.error(`🚨 Suspicious activity detected: ${identifier} - ${activity}`);
     }
+  }
+
+  // Bot detection method for compatibility
+  detectBot(req) {
+    const userAgent = req.headers['user-agent'] || '';
+    const ip = req.ip;
+    
+    const botPatterns = [
+      /bot/i, /crawler/i, /spider/i, /scraper/i,
+      /curl/i, /wget/i, /python/i, /requests/i,
+      /postman/i, /insomnia/i, /httpie/i,
+      /headless/i, /phantom/i, /selenium/i
+    ];
+    
+    if (botPatterns.some(pattern => pattern.test(userAgent))) {
+      this.logSuspiciousActivity(ip, 'bot_user_agent');
+      return true;
+    }
+    
+    // Check for missing expected headers in real browsers
+    const requiredHeaders = ['accept', 'accept-language', 'accept-encoding'];
+    const missingHeaders = requiredHeaders.filter(header => !req.headers[header]);
+    
+    if (missingHeaders.length > 1) {
+      this.logSuspiciousActivity(ip, 'missing_headers');
+      return true;
+    }
+    
+    // Check for automation indicators
+    if (req.headers['x-requested-with'] === 'XMLHttpRequest' && !req.headers.referer) {
+      this.logSuspiciousActivity(ip, 'suspicious_ajax');
+      return true;
+    }
+    
+    return false;
+  }
+
+  // Validate fingerprint method for compatibility
+  validateFingerprint(req) {
+    const fingerprint = this.generateAdvancedFingerprint(req);
+    const ip = req.ip;
+    const stored = this.fingerprints.get(ip);
+    
+    if (!stored) {
+      this.fingerprints.set(ip, {
+        fingerprint,
+        firstSeen: Date.now(),
+        requestCount: 1
+      });
+      return true;
+    }
+    
+    stored.requestCount++;
+    
+    if (stored.fingerprint !== fingerprint) {
+      this.logSuspiciousActivity(ip, 'fingerprint_change');
+      stored.fingerprint = fingerprint;
+    }
+    
+    return true;
   }
 }
 
