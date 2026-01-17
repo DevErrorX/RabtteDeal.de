@@ -1,0 +1,11 @@
+[phases.setup]
+nixPkgs = ["nodejs", "python3"]
+
+[phases.install]
+cmds = [
+    "npm install",
+    "python3 -m venv /opt/venv && /opt/venv/bin/pip install -r requirements.txt"
+]
+
+[start]
+cmd = "PATH=\"/opt/venv/bin:$PATH\" node bot.js"
