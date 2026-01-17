@@ -1,7 +1,15 @@
 import sys
 import json
 import os
-from curl_cffi import requests
+
+# Try to import curl_cffi, fallback to standard requests if it fails
+try:
+    from curl_cffi import requests
+    USE_CURL_CFFI = True
+except ImportError:
+    import requests
+    USE_CURL_CFFI = False
+
 from bs4 import BeautifulSoup
 
 def scrape_amazon(url):
@@ -16,12 +24,17 @@ def scrape_amazon(url):
     }
 
     try:
-        response = requests.get(
-            url, impersonate="chrome110", cookies=cookies, headers=headers, timeout=30
-        )
+        if USE_CURL_CFFI:
+            response = requests.get(
+                url, impersonate="chrome110", cookies=cookies, headers=headers, timeout=30
+            )
+        else:
+            response = requests.get(
+                url, cookies=cookies, headers=headers, timeout=30
+            )
 
         if response.status_code != 200:
-            return {"error": f"Request failed: {response.status_code}"}
+            return {"error": f"Request failed with status code: {response.status_code}"}
 
         soup = BeautifulSoup(response.content, "html.parser")
 
@@ -29,14 +42,30 @@ def scrape_amazon(url):
         title_text = title.get_text().strip() if title else "غير متوفر"
 
         current_price = "غير متوفر"
-        price_span = soup.select_one("span.a-price span.a-offscreen")
-        if price_span:
-            current_price = price_span.get_text().strip()
+        # Try multiple selectors for price
+        price_selectors = [
+            "span.a-price span.a-offscreen",
+            "span#priceblock_ourprice",
+            "span#priceblock_dealprice",
+            "span.a-color-price"
+        ]
+        for selector in price_selectors:
+            price_span = soup.select_one(selector)
+            if price_span:
+                current_price = price_span.get_text().strip()
+                break
         
         old_price = "لا يوجد خصم"
-        old_price_element = soup.select_one("span.a-price.a-text-price span.a-offscreen")
-        if old_price_element:
-            old_price = old_price_element.get_text().strip()
+        old_price_selectors = [
+            "span.a-price.a-text-price span.a-offscreen",
+            "span.priceBlockStrikePriceString",
+            "span.a-text-strike"
+        ]
+        for selector in old_price_selectors:
+            old_price_element = soup.select_one(selector)
+            if old_price_element:
+                old_price = old_price_element.get_text().strip()
+                break
 
         description_text = ""
         description_div = soup.find("div", id="feature-bullets")
@@ -48,7 +77,7 @@ def scrape_amazon(url):
         else:
             description_text = "الوصف غير متوفر"
 
-        img_tag = soup.find("img", id="landingImage")
+        img_tag = soup.find("img", id="landingImage") or soup.find("img", id="imgBlkFront")
         img_url = img_tag.get("src") if img_tag else "الصورة غير متوفرة"
 
         return {
@@ -62,10 +91,13 @@ def scrape_amazon(url):
         return {"error": str(e)}
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print(json.dumps({"error": "No URL provided"}))
-        sys.exit(1)
-    
-    url = sys.argv[1]
-    result = scrape_amazon(url)
-    print(json.dumps(result))
+    try:
+        if len(sys.argv) < 2:
+            print(json.dumps({"error": "No URL provided"}))
+            sys.exit(1)
+        
+        url = sys.argv[1]
+        result = scrape_amazon(url)
+        print(json.dumps(result))
+    except Exception as e:
+        print(json.dumps({"error": f"Fatal error: {str(e)}"}))
