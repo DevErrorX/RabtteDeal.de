@@ -945,11 +945,12 @@ async function handleSessionMessage(chatId, userId, text, session) {
 
 async function startAddDeal(chatId, userId) {
   const session = createSecureSession(userId, "add_deal");
+  session.step = "amazon_url"; // Start with URL
   userSessions.set(userId, session);
 
   bot.sendMessage(
     chatId,
-"📝 إضافة عرض جديد...\n\nيرجى إدخال اسم العرض (5-100 حرف):"
+    "📝 إضافة عرض جديد...\n\nيرجى إدخال رابط أمازون (يجب أن يكون HTTPS):"
   );
 }
 
@@ -957,58 +958,123 @@ async function handleAddDealSession(chatId, userId, text, session) {
   const { step, data } = session;
 
   switch (step) {
-    case "name":{
+    case "amazon_url": {
+      if (!InputValidator.validateURL(text)) {
+        bot.sendMessage(chatId, "❌ يرجى إدخال رابط أمازون HTTPS صالح من النطاقات المدعومة:");
+        return;
+      }
+      data.amazonUrl = text;
+      
+      bot.sendMessage(chatId, "🔍 جاري جلب بيانات المنتج من أمازون...");
+      
+      const pythonProcess = spawn('python3', [path.join(__dirname, 'amazon_scraper.py'), text]);
+      let output = '';
+      
+      pythonProcess.stdout.on('data', (data) => {
+        output += data.toString();
+      });
+      
+      pythonProcess.on('close', async (code) => {
+        try {
+          const result = JSON.parse(output);
+          if (result.error) {
+            bot.sendMessage(chatId, `❌ فشل جلب البيانات: ${result.error}\nيرجى إدخال اسم العرض يدوياً:`);
+            session.step = "name";
+            userSessions.set(userId, session);
+          } else {
+            data.name = result.title;
+            data.description = result.description;
+            data.imageUrl = result.image_url;
+            
+            // Extract prices
+            const parsePrice = (p) => {
+              if (!p || p === "غير متوفر" || p === "لا يوجد خصم") return null;
+              const match = p.match(/[\d,.]+/);
+              if (match) {
+                return parseFloat(match[0].replace(',', '.'));
+              }
+              return null;
+            };
+            
+            data.dealPrice = parsePrice(result.current_price);
+            data.originalPrice = parsePrice(result.old_price);
+            
+            bot.sendMessage(chatId, 
+              `✅ تم جلب البيانات بنجاح!\n\n` +
+              `📦 المنتج: ${data.name}\n` +
+              `💰 السعر الحالي: ${result.current_price}\n` +
+              `❌ السعر قبل الخصم: ${result.old_price}\n\n` +
+              `هل لديك رمز قسيمة لهذا العرض؟ أدخل رمز القسيمة أو اكتب 'no' إذا لا توجد قسيمة:`
+            );
+            session.step = "coupon";
+            userSessions.set(userId, session);
+          }
+        } catch (e) {
+          console.error("Error parsing scraper output:", e);
+          bot.sendMessage(chatId, "❌ حدث خطأ أثناء معالجة البيانات. يرجى إدخال اسم العرض يدوياً:");
+          session.step = "name";
+          userSessions.set(userId, session);
+        }
+      });
+      break;
+    }
+
+    case "name": {
       const sanitizedName = InputValidator.sanitizeText(text, 100);
       if (sanitizedName.length < 5 || sanitizedName.length > 100) {
-bot.sendMessage(chatId, "❌ يجب أن يكون اسم العرض بين 5 و 100 حرف:")
-        return;}
-
+        bot.sendMessage(chatId, "❌ يجب أن يكون اسم العرض بين 5 و 100 حرف:");
+        return;
+      }
       data.name = sanitizedName;
       session.step = "description";
       userSessions.set(userId, session);
-bot.sendMessage(chatId, "✅ تم حفظ الاسم!\n\nالآن أدخل الوصف (10-500 حرف):")
-      break;}
+      bot.sendMessage(chatId, "✅ تم حفظ الاسم!\n\nالآن أدخل الوصف (10-500 حرف):");
+      break;
+    }
 
-    case "description":{
+    case "description": {
       const sanitizedDesc = InputValidator.sanitizeText(text, 500);
       if (sanitizedDesc.length < 10 || sanitizedDesc.length > 500) {
-bot.sendMessage(chatId, "❌ يجب أن يكون الوصف بين 10 و 500 حرف:")
+        bot.sendMessage(chatId, "❌ يجب أن يكون الوصف بين 10 و 500 حرف:");
         return;
       }
       data.description = sanitizedDesc;
       session.step = "original_price";
       userSessions.set(userId, session);
-bot.sendMessage(chatId, "✅ تم حفظ الوصف!\n\nأدخل السعر الأصلي (مثلاً 99.99):")
-      break;}
+      bot.sendMessage(chatId, "✅ تم حفظ الوصف!\n\nأدخل السعر الأصلي (مثلاً 99.99):");
+      break;
+    }
 
-    case "original_price":{
+    case "original_price": {
       if (!InputValidator.validatePrice(text)) {
-bot.sendMessage(chatId, "❌ يرجى إدخال سعر صالح (0.01 - 99999.99):")
+        bot.sendMessage(chatId, "❌ يرجى إدخال سعر صالح (0.01 - 99999.99):");
         return;
       }
       data.originalPrice = parseFloat(text);
       session.step = "deal_price";
       userSessions.set(userId, session);
-bot.sendMessage(chatId, "✅ تم حفظ السعر الأصلي!\n\nأدخل سعر العرض:")
-      break;}
+      bot.sendMessage(chatId, "✅ تم حفظ السعر الأصلي!\n\nأدخل سعر العرض:");
+      break;
+    }
 
-    case "deal_price":{
+    case "deal_price": {
       if (!InputValidator.validatePrice(text)) {
-bot.sendMessage(chatId, "❌ يرجى إدخال سعر صالح (0.01 - 99999.99):")
+        bot.sendMessage(chatId, "❌ يرجى إدخال سعر صالح (0.01 - 99999.99):");
         return;
       }
       const dealPrice = parseFloat(text);
       if (dealPrice >= data.originalPrice) {
-bot.sendMessage(chatId, "❌ يجب أن يكون سعر العرض أقل من السعر الأصلي:")
+        bot.sendMessage(chatId, "❌ يجب أن يكون سعر العرض أقل من السعر الأصلي:");
         return;
       }
       data.dealPrice = dealPrice;
       session.step = "coupon";
       userSessions.set(userId, session);
-bot.sendMessage(chatId, "✅ تم حفظ سعر العرض!\n\nهل لديك رمز قسيمة لهذا العرض؟ أدخل رمز القسيمة أو اكتب 'no' إذا لا توجد قسيمة:");
-      break;}
+      bot.sendMessage(chatId, "✅ تم حفظ سعر العرض!\n\nهل لديك رمز قسيمة لهذا العرض؟ أدخل رمز القسيمة أو اكتب 'no' إذا لا توجد قسيمة:");
+      break;
+    }
 
-    case "coupon":{
+    case "coupon": {
       const couponText = InputValidator.sanitizeText(text, 50).trim();
       if (couponText.toLowerCase() === 'no' || couponText.toLowerCase() === 'nein') {
         data.coupon = null;
@@ -1018,80 +1084,94 @@ bot.sendMessage(chatId, "✅ تم حفظ سعر العرض!\n\nهل لديك ر�
       session.step = "category";
       userSessions.set(userId, session);
       const validCategories = [
-    'fashion', 'uhren', 'baumarkt', 'haushalt', 'kosmetik', 
-    'küche', 'schmuck', 'musik', 'möbel', 'auto', 
-    'bücher', 'sport', 'büro', 'baby', 'computer', 
-    'elektronik', 'haustier', 'kamera', 'spielwaren', 
-    'garten', 'lebensmittel', 'videospiele', 'gutscheine'
-];
+        'fashion', 'uhren', 'baumarkt', 'haushalt', 'kosmetik',
+        'küche', 'schmuck', 'musik', 'möbel', 'auto',
+        'bücher', 'sport', 'büro', 'baby', 'computer',
+        'elektronik', 'haustier', 'kamera', 'spielwaren',
+        'garten', 'lebensmittel', 'videospiele', 'gutscheine'
+      ];
       bot.sendMessage(
         chatId,
         `✅ تم ${data.coupon ? 'حفظ' : 'تخطي'} القسيمة!\n\n` +
         `أدخل التصنيف (واحد من هذه التصنيفات: ${validCategories.join(', ')}):`
       );
+      break;
+    }
 
-      break;}
+    case "category": {
+      const category = InputValidator.sanitizeText(text, 50).toLowerCase();
+      const validCategories = [
+        'fashion', 'uhren', 'baumarkt', 'haushalt', 'kosmetik',
+        'küche', 'schmuck', 'musik', 'möbel', 'auto',
+        'bücher', 'sport', 'büro', 'baby', 'computer',
+        'elektronik', 'haustier', 'kamera', 'spielwaren',
+        'garten', 'lebensmittel', 'videospiele', 'gutscheine'
+      ];
 
-    case "category":{
-    const category = InputValidator.sanitizeText(text, 50).toLowerCase();
-    const validCategories = [
-    'fashion', 'uhren', 'baumarkt', 'haushalt', 'kosmetik', 
-    'küche', 'schmuck', 'musik', 'möbel', 'auto', 
-    'bücher', 'sport', 'büro', 'baby', 'computer', 
-    'elektronik', 'haustier', 'kamera', 'spielwaren', 
-    'garten', 'lebensmittel', 'videospiele', 'gutscheine'
-];
-    
-    if (!validCategories.includes(category)) {
-    bot.sendMessage(chatId, 
-    "❌ يرجى إدخال تصنيف صالح من القائمة التالية:\n\n" +
-    "Amazon Fashion, Uhren, Baumarkt, Haushalt\n" +
-    "Kosmetik & Körperpflege, Küche & Esszimmer\n" +
-    "Schmuck, Musik, Möbel, Auto & Motorrad\n" +
-    "Bücher, Sport und Fitness, Bürobedarf\n" +
-    "Babyartikel, Computer & Zubehör, Elektronik\n" +
-    "Haustierprodukte, Kameras, Spielwaren\n" +
-    "Garten, Lebensmittel, Videospiele\n" +
-    "Geschenkgutscheine"
-);
-return;
-}
-
-    data.category = category;
-    session.step = "amazon_url";
-    userSessions.set(userId, session);
-bot.sendMessage(chatId, "✅ تم حفظ التصنيف!\n\nأدخل رابط أمازون (يجب أن يكون HTTPS):");
-    break;}
-
-    case "amazon_url":{
-      if (!InputValidator.validateURL(text)) {
-bot.sendMessage(chatId, "❌ يرجى إدخال رابط أمازون HTTPS صالح من النطاقات المدعومة:");
+      if (!validCategories.includes(category)) {
+        bot.sendMessage(chatId,
+          "❌ يرجى إدخال تصنيف صالح من القائمة التالية:\n\n" +
+          "Amazon Fashion, Uhren, Baumarkt, Haushalt\n" +
+          "Kosmetik & Körperpflege, Küche & Esszimmer\n" +
+          "Schmuck, Musik, Möbel, Auto & Motorrad\n" +
+          "Bücher, Sport und Fitness, Bürobedarf\n" +
+          "Babyartikel, Computer & Zubehör, Elektronik\n" +
+          "Haustierprodukte, Kameras, Spielwaren\n" +
+          "Garten, Lebensmittel, Videospiele\n" +
+          "Geschenkgutscheine"
+        );
         return;
       }
-      data.amazonUrl = text;
-      session.step = "photo";
-      userSessions.set(userId, session);
-bot.sendMessage(chatId, "✅ تم حفظ رابط أمازون!\n\nأرسل صورة أو أدخل رابط صورة HTTPS:");
-      break;}
+
+      data.category = category;
+      
+      // If we have all data from scraper, complete the deal
+      if (data.name && data.description && data.dealPrice && data.originalPrice && data.imageUrl) {
+        if (session.completing) return;
+        session.completing = true;
+        userSessions.set(userId, session);
+        await completeDealAdd(chatId, userId, data);
+      } else {
+        // Fallback if scraper missed something
+        if (!data.name) {
+          session.step = "name";
+          bot.sendMessage(chatId, "✅ تم حفظ التصنيف!\n\nيرجى إدخال اسم العرض:");
+        } else if (!data.description) {
+          session.step = "description";
+          bot.sendMessage(chatId, "✅ تم حفظ التصنيف!\n\nيرجى إدخال الوصف:");
+        } else if (!data.originalPrice) {
+          session.step = "original_price";
+          bot.sendMessage(chatId, "✅ تم حفظ التصنيف!\n\nيرجى إدخال السعر الأصلي:");
+        } else if (!data.dealPrice) {
+          session.step = "deal_price";
+          bot.sendMessage(chatId, "✅ تم حفظ التصنيف!\n\nيرجى إدخال سعر العرض:");
+        } else {
+          session.step = "photo";
+          bot.sendMessage(chatId, "✅ تم حفظ التصنيف!\n\nأرسل صورة أو أدخل رابط صورة HTTPS:");
+        }
+        userSessions.set(userId, session);
+      }
+      break;
+    }
 
     case "photo": {
-  if (session.completing) {
-    return;
-  }
-  
-  session.completing = true;
-  userSessions.set(userId, session);
+      if (session.completing) {
+        return;
+      }
 
-  if (text && InputValidator.validateImageURL(text)) {
-    data.imageUrl = text;
-    await completeDealAdd(chatId, userId, data);
-  } else {
-    session.completing = false;
-    userSessions.set(userId, session);
-    bot.sendMessage(chatId, "❌ يرجى إرسال صورة أو إدخال رابط صورة HTTPS صالح:");
-  }
-  break;
-}
+      session.completing = true;
+      userSessions.set(userId, session);
+
+      if (text && InputValidator.validateImageURL(text)) {
+        data.imageUrl = text;
+        await completeDealAdd(chatId, userId, data);
+      } else {
+        session.completing = false;
+        userSessions.set(userId, session);
+        bot.sendMessage(chatId, "❌ يرجى إرسال صورة أو إدخال رابط صورة HTTPS صالح:");
+      }
+      break;
+    }
   }
 }
 async function completeDealAdd(chatId, userId, data) {
