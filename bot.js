@@ -969,14 +969,22 @@ async function handleAddDealSession(chatId, userId, text, session) {
       
       const pythonProcess = spawn('python3', [path.join(__dirname, 'amazon_scraper.py'), text]);
       let output = '';
+      let errorOutput = '';
       
       pythonProcess.stdout.on('data', (data) => {
         output += data.toString();
       });
+
+      pythonProcess.stderr.on('data', (data) => {
+        errorOutput += data.toString();
+      });
       
       pythonProcess.on('close', async (code) => {
+        if (code !== 0) {
+          console.error(`Scraper exited with code ${code}. Error: ${errorOutput}`);
+        }
         try {
-          const result = JSON.parse(output);
+          const result = JSON.parse(output || '{"error": "No output from scraper"}');
           if (result.error) {
             bot.sendMessage(chatId, `❌ فشل جلب البيانات: ${result.error}\nيرجى إدخال اسم العرض يدوياً:`);
             session.step = "name";
