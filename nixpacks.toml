@@ -4,8 +4,8 @@ nixPkgs = ["nodejs", "python311", "gcc"]
 [phases.install]
 cmds = [
     "npm install",
-    "python3 -m venv /opt/venv && /opt/venv/bin/pip install -r requirements.txt"
+    "pip install -r requirements.txt"
 ]
 
-[variables]
-PATH = "/opt/venv/bin:$PATH"
+[start]
+cmd = "node bot.js"
