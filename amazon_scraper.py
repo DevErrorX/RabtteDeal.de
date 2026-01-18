@@ -21,6 +21,8 @@ def scrape_amazon(url):
     headers = {
         "accept-language": "de-DE,de;q=0.9,en;q=0.8",
         "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "accept-encoding": "gzip, deflate",
+        "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
     }
 
     try:
@@ -30,21 +32,30 @@ def scrape_amazon(url):
             )
         else:
             response = requests.get(
-                url, cookies=cookies, headers=headers, timeout=30
+                url, cookies=cookies, headers=headers, timeout=30, verify=True
             )
 
         if response.status_code != 200:
             return {"error": f"Request failed with status code: {response.status_code}"}
 
         soup = BeautifulSoup(response.content, "html.parser")
+        
+        # Debug: Check if we got actual product content
+        if "unavailable" in response.text.lower() and "sold out" in response.text.lower():
+            return {"error": "Product is unavailable or sold out"}
 
         title = soup.find("span", id="productTitle")
-        title_text = title.get_text().strip() if title else "غير متوفر"
+        title_text = title.get_text().strip() if title else None
+        
+        # If no title, try alternative selectors
+        if not title_text:
+            title = soup.find("h1")
+            title_text = title.get_text().strip() if title else "غير متوفر"
 
         current_price = "غير متوفر"
         # Try multiple selectors for price
         price_selectors = [
-            "span.a-price span.a-offscreen",
+            "span.a-price",
             "span#priceblock_ourprice",
             "span#priceblock_dealprice",
             "span.a-color-price"
@@ -54,7 +65,7 @@ def scrape_amazon(url):
             if price_span:
                 current_price = price_span.get_text().strip()
                 break
-        
+
         old_price = "لا يوجد خصم"
         old_price_selectors = [
             "span.a-price.a-text-price span.a-offscreen",
@@ -80,16 +91,17 @@ def scrape_amazon(url):
         img_tag = soup.find("img", id="landingImage") or soup.find("img", id="imgBlkFront")
         img_url = img_tag.get("src") if img_tag else "الصورة غير متوفرة"
 
-        return {
+    
+        result = {
             "title": title_text,
             "current_price": current_price,
             "old_price": old_price,
             "description": description_text,
             "image_url": img_url
         }
+        return result
     except Exception as e:
         return {"error": str(e)}
-
 if __name__ == "__main__":
     try:
         if len(sys.argv) < 2:
