@@ -1026,11 +1026,11 @@ async function handleAddDealSession(chatId, userId, text, session) {
             userSessions.set(userId, session);
           } else {
             // Truncate title to 100 characters if needed
-            data.name = result.title ? result.title.substring(0, 100) : 'غير متوفر';
+            data.name = result.title ? result.title.substring(0, 100) : 'nicht verfügbar';
             // Use a default description if not available or too short
             data.description = (result.description && result.description.length >= 10) 
               ? result.description 
-              : 'منتج متميز بجودة عالية وأداء ممتاز';
+              : 'Hochwertiges Produkt mit ausgezeichneter Qualität und Performance';
             data.imageUrl = result.image_url;
             
             // Extract prices
@@ -1238,6 +1238,12 @@ async function completeDealAdd(chatId, userId, data) {
     if (!currentSession || currentSession.action !== "add_deal") {
       throw new Error("Session validation failed");
     }
+    
+    // Ensure description meets minimum requirements before validation
+    if (!data.description || data.description.length < 10) {
+      data.description = 'Hochwertiges Produkt mit ausgezeichneter Qualität und Performance';
+    }
+    
     const validationErrors = InputValidator.validateDealData(data);
     if (validationErrors.length > 0) {
       console.error('❌ Validation failed:', validationErrors);
