@@ -1243,9 +1243,17 @@ async function completeDealAdd(chatId, userId, data) {
       throw new Error("Session validation failed");
     }
     
-    // Ensure description meets minimum requirements before validation
-    if (!data.description || data.description.length < 10) {
+    // Ensure description is properly formatted and within length limits
+    if (!data.description || typeof data.description !== 'string') {
       data.description = 'Hochwertiges Produkt mit ausgezeichneter Qualität und Performance';
+    } else {
+      // Trim and ensure it's between 10-500 characters
+      data.description = data.description.trim();
+      if (data.description.length < 10) {
+        data.description = 'Hochwertiges Produkt mit ausgezeichneter Qualität und Performance';
+      } else if (data.description.length > 500) {
+        data.description = data.description.substring(0, 500);
+      }
     }
     
     const validationErrors = InputValidator.validateDealData(data);
