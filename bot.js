@@ -1025,16 +1025,23 @@ async function handleAddDealSession(chatId, userId, text, session) {
             session.step = "name";
             userSessions.set(userId, session);
           } else {
-            data.name = result.title;
-            data.description = result.description;
+            // Truncate title to 100 characters if needed
+            data.name = result.title ? result.title.substring(0, 100) : 'غير متوفر';
+            // Use a default description if not available or too short
+            data.description = (result.description && result.description.length >= 10) 
+              ? result.description 
+              : 'منتج متميز بجودة عالية وأداء ممتاز';
             data.imageUrl = result.image_url;
             
             // Extract prices
             const parsePrice = (p) => {
               if (!p || p === "غير متوفر" || p === "لا يوجد خصم") return null;
-              const match = p.match(/[\d,.]+/);
+              // Remove duplicate prices (e.g., "9,99€9,99€" -> "9,99€")
+              const cleaned = p.replace(/(\d+[,.\d€]*)\1+/g, '$1');
+              // Extract first numeric value with commas/dots
+              const match = cleaned.match(/([0-9]+[.,][0-9]{2})/);
               if (match) {
-                return parseFloat(match[0].replace(',', '.'));
+                return parseFloat(match[1].replace(',', '.'));
               }
               return null;
             };
@@ -1042,7 +1049,15 @@ async function handleAddDealSession(chatId, userId, text, session) {
             data.dealPrice = parsePrice(result.current_price);
             data.originalPrice = parsePrice(result.old_price);
             
-            bot.sendMessage(chatId, 
+            // If no original price or prices are the same, ask user to enter prices manually
+            if (!data.dealPrice || !data.originalPrice || data.dealPrice >= data.originalPrice) {
+              bot.sendMessage(chatId, `⚠️ لم نتمكن من جلب سعر الخصم.‏ يرجى إدخال السعر الأصلي أولاً:`);
+              session.step = "original_price";
+              userSessions.set(userId, session);
+              return;
+            }
+            
+            bot.sendMessage(chatId,
               `✅ تم جلب البيانات بنجاح!\n\n` +
               `📦 المنتج: ${data.name}\n` +
               `💰 السعر الحالي: ${result.current_price}\n` +
