@@ -318,6 +318,7 @@ static validateImageURL(url) {
       (url.includes('telegram.org') ||
        url.includes('amazonaws.com') ||
        url.includes('cloudfront.net') ||
+       url.includes('media-amazon.com') ||
        /\.(jpg|jpeg|png|gif|webp)$/i.test(urlObj.pathname));
   } catch {
     return false;
@@ -984,9 +985,43 @@ async function handleAddDealSession(chatId, userId, text, session) {
           console.error(`Scraper exited with code ${code}. Error: ${errorOutput}`);
         }
         try {
-          const result = JSON.parse(output || '{"error": "No output from scraper"}');
+          // Extract JSON from output - handle cases where there might be multiple lines
+          let result = null;
+          let parseError = null;
+          
+          // Try to find and parse JSON objects in the output
+          const jsonMatches = output.match(/{[^{}]*"(?:title|error)"[^{}]*}/g);
+          
+          if (jsonMatches && jsonMatches.length > 0) {
+            // Parse the last (most likely the actual result) JSON object
+            try {
+              result = JSON.parse(jsonMatches[jsonMatches.length - 1]);
+            } catch (innerError) {
+              parseError = innerError;
+            }
+          }
+          
+          // Fallback: try parsing the whole output
+          if (!result && !parseError) {
+            try {
+              result = JSON.parse(output.trim());
+            } catch (innerError) {
+              parseError = innerError;
+            }
+          }
+          
+          if (!result) {
+            result = { error: parseError ? parseError.message : 'No valid data from scraper' };
+          }
+          
+          console.log('Scraper result:', result);
+          
           if (result.error) {
             bot.sendMessage(chatId, `❌ فشل جلب البيانات: ${result.error}\nيرجى إدخال اسم العرض يدوياً:`);
+            session.step = "name";
+            userSessions.set(userId, session);
+          } else if (!result.title) {
+            bot.sendMessage(chatId, `❌ لم يتم الحصول على بيانات صحيحة من المنتج.\nيرجى إدخال اسم العرض يدوياً:`);
             session.step = "name";
             userSessions.set(userId, session);
           } else {
@@ -1018,7 +1053,7 @@ async function handleAddDealSession(chatId, userId, text, session) {
             userSessions.set(userId, session);
           }
         } catch (e) {
-          console.error("Error parsing scraper output:", e);
+          console.error("Error parsing scraper output:", e, "Raw output:", output);
           bot.sendMessage(chatId, "❌ حدث خطأ أثناء معالجة البيانات. يرجى إدخال اسم العرض يدوياً:");
           session.step = "name";
           userSessions.set(userId, session);
@@ -1208,7 +1243,7 @@ async function completeDealAdd(chatId, userId, data) {
     const reviews = Math.floor(Math.random() * 2000) + 100; // 100 to 2100 reviews
 
     // Create the complete deal object
-    const newDeal = {
+      const newDeal = {
       // Basic identifiers
       id: dealId,
       slug: slug,
@@ -1227,8 +1262,11 @@ async function completeDealAdd(chatId, userId, data) {
       
       // URLs and media
       amazonUrl: data.amazonUrl,
-      imageUrl: `/secure-image/${dealId}`,
+      // Preserve Amazon image URL if available, otherwise use secure-image path
+      imageUrl: data.imageUrl && data.imageUrl.startsWith('http') ? data.imageUrl : `/secure-image/${dealId}`,
       imageInfo: data.imageInfo || null,
+      // Store the original Amazon image URL for reference
+      originalImageUrl: data.imageUrl,
       
       // Additional features
       coupon: data.coupon && data.coupon.trim() ? data.coupon.trim() : null,
@@ -2371,6 +2409,11 @@ app.get('/secure-image/:id', async (req, res) => {
       }
     }
 
+    // Check for original Amazon image URL (from scrapers)
+    if (deal.originalImageUrl && deal.originalImageUrl.startsWith('http')) {
+      return res.redirect(deal.originalImageUrl);
+    }
+    
     // Fallback for external image URLs
     if (deal.imageUrl && deal.imageUrl.startsWith('http')) {
       return res.redirect(deal.imageUrl);
