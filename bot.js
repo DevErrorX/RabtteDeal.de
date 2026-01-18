@@ -1051,6 +1051,10 @@ async function handleAddDealSession(chatId, userId, text, session) {
             
             // If no original price or prices are the same, ask user to enter prices manually
             if (!data.dealPrice || !data.originalPrice || data.dealPrice >= data.originalPrice) {
+              // Ensure description is set before asking for prices
+              if (!data.description || data.description.length < 10) {
+                data.description = 'Hochwertiges Produkt mit ausgezeichneter Qualität und Performance';
+              }
               bot.sendMessage(chatId, `⚠️ لم نتمكن من جلب سعر الخصم.‏ يرجى إدخال السعر الأصلي أولاً:`);
               session.step = "original_price";
               userSessions.set(userId, session);
