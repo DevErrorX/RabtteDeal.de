@@ -84,7 +84,7 @@ def scrape_amazon(url):
             bullets = description_div.find_all("li")
             full_desc = " ".join([b.get_text().strip() for b in bullets])
             words = full_desc.split()
-            description_text = " ".join(words[:100]) + "..."
+            description_text = " ".join(words[:12]) + "..."
         else:
             description_text = "الوصف غير متوفر"
 
