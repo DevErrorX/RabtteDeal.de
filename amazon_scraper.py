@@ -86,7 +86,7 @@ def scrape_amazon(url):
             words = full_desc.split()
             description_text = " ".join(words[:12]) + "..."
         else:
-            description_text = "الوصف غير متوفر"
+            description_text = "Stilvolles Design trifft auf Funktionalität. Ein absolutes Must-have, das durch seine Zuverlässigkeit und Performance besticht."
 
         img_tag = soup.find("img", id="landingImage") or soup.find("img", id="imgBlkFront")
         img_url = img_tag.get("src") if img_tag else "الصورة غير متوفرة"
