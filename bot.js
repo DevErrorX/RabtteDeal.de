@@ -1036,16 +1036,35 @@ async function handleAddDealSession(chatId, userId, text, session) {
             
             // Extract prices
             const parsePrice = (p) => {
-              if (!p || p === "غير متوفر" || p === "لا يوجد خصم") return null;
-              // Remove duplicate prices (e.g., "9,99€9,99€" -> "9,99€")
-              const cleaned = p.replace(/(\d+[,.\d€]*)\1+/g, '$1');
-              // Extract first numeric value with commas/dots
-              const match = cleaned.match(/([0-9]+[.,][0-9]{2})/);
-              if (match) {
-                return parseFloat(match[1].replace(',', '.'));
-              }
-              return null;
-            };
+    if (!p || typeof p !== 'string') return null;
+    
+    // 1. تنظيف أولي للكلمات العربية أو الرموز الغريبة
+    if (p.includes("غير متوفر") || p.includes("لا يوجد خصم")) return null;
+
+    // 2. إزالة كل شيء ليس (رقماً أو فاصلة أو نقطة)
+    // هذا سيحول "29,99€" إلى "29,99"
+    let cleaned = p.replace(/[^\d.,]/g, '');
+
+    // 3. استخراج الرقم (يدعم: 9 | 9.5 | 9,99)
+    const match = cleaned.match(/(\d+([.,]\d+)?)/);
+
+    if (match) {
+        // تحويل الفاصلة إلى نقطة ليفهمها البرمج كـ Float
+        let numStr = match[1].replace(',', '.');
+        
+        // التعامل مع حالة آلاف (مثلاً 1.250,50) 
+        // إذا وجد أكثر من نقطة، نعتبر الأخيرة هي العلامة العشرية
+        const parts = numStr.split('.');
+        if (parts.length > 2) {
+            const decimal = parts.pop();
+            numStr = parts.join('') + '.' + decimal;
+        }
+        
+        return parseFloat(numStr);
+    }
+    
+    return null;
+};
             
             data.dealPrice = parsePrice(result.current_price);
             data.originalPrice = parsePrice(result.old_price);
