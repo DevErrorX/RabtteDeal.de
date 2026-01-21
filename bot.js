@@ -302,7 +302,8 @@ class InputValidator {
         'amazon.co.uk', 'www.amazon.co.uk',
         'amazon.fr', 'www.amazon.fr',
         'amazon.it', 'www.amazon.it',
-        'amazon.es', 'www.amazon.es'
+        'amazon.es', 'www.amazon.es',
+        'amzn.to'
       ];
       return urlObj.protocol === 'https:' && allowedDomains.includes(urlObj.hostname.toLowerCase());
     } catch {
