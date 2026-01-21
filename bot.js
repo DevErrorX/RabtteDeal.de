@@ -1058,6 +1058,13 @@ async function handleAddDealSession(chatId, userId, text, session) {
               }
               session.step = "original_price";
               userSessions.set(userId, session); // Save session with description set
+              bot.sendMessage(chatId,
+              `✅ تم جلب البيانات بنجاح!\n\n` +
+              `📦 المنتج: ${data.name}\n` +
+              `💰 السعر الحالي: ${result.current_price}\n` +
+              `❌ السعر قبل الخصم: ${result.old_price}\n\n` +
+              `هل لديك رمز قسيمة لهذا العرض؟ أدخل رمز القسيمة أو اكتب 'no' إذا لا توجد قسيمة:`
+            );
               bot.sendMessage(chatId, `⚠️ لم نتمكن من جلب سعر الخصم.‏ يرجى إدخال السعر الأصلي أولاً:`);
               return;
             }
