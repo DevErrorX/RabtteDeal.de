@@ -1,4 +1,5 @@
 const TelegramBot = require("node-telegram-bot-api");
+app.set('trust proxy', true);
 const express = require("express");
 const fs = require("fs").promises;
 const path = require("path");
@@ -13,7 +14,9 @@ const AdvancedSecurityManager = require('./security-middleware');
 require('dotenv').config();
 const admin = require("firebase-admin");
 let firebaseConfig;
-
+const getClientIp = (req) => {
+  return req.headers['cf-connecting-ip'] || req.headers['x-forwarded-for'] || getClientIp(req);
+};
 if (process.env.NODE_ENV === 'production' || process.env.RAILWAY_ENVIRONMENT) {
   firebaseConfig = {
     credential: admin.credential.cert({
@@ -136,7 +139,7 @@ class SecurityManager {
 
   detectBot(req) {
     const userAgent = req.headers['user-agent'] || '';
-    const ip = req.ip;
+    const ip = getClientIp(req);
     
     const botPatterns = [
       /bot/i, /crawler/i, /spider/i, /scraper/i,
@@ -179,7 +182,7 @@ class SecurityManager {
       req.headers['accept'] || '',
       req.headers['accept-language'] || '',
       req.headers['accept-encoding'] || '',
-      req.ip
+      getClientIp(req)
     ];
     
     return crypto.createHash('sha256')
@@ -190,7 +193,7 @@ class SecurityManager {
 
   validateFingerprint(req) {
     const fingerprint = this.generateFingerprint(req);
-    const ip = req.ip;
+    const ip = getClientIp(req);
     const stored = this.fingerprints.get(ip);
     
     if (!stored) {
@@ -434,9 +437,9 @@ const redirectLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 50, 
   message: generateErrorPage("Rate Limit Exceeded", "Please wait before making more requests"),
-  skip: (req) => security.isBlocked(req.ip),
+  skip: (req) => security.isBlocked(getClientIp(req)),
   handler: (req, res) => {
-    security.logSuspiciousActivity(req.ip, 'redirect_rate_limit');
+    security.logSuspiciousActivity(getClientIp(req), 'redirect_rate_limit');
     res.status(429).send(generateErrorPage("Rate Limit Exceeded", "Please wait before making more requests"));
   }
 });
@@ -446,7 +449,7 @@ const apiLimiter = rateLimit({
   max: 60,
   message: { error: 'Too many API requests' },
   handler: (req, res) => {
-    security.logSuspiciousActivity(req.ip, 'api_rate_limit');
+    security.logSuspiciousActivity(getClientIp(req), 'api_rate_limit');
     res.status(429).json({ error: 'Too many requests' });
   }
 });
@@ -1933,9 +1936,9 @@ app.get('/redirect/:dealId', redirectLimiter, async (req, res) => {
     
     // Check for honeypot traps
     if (security.isHoneypot(`/redirect/${dealId}`) || dealId.includes('honey_')) {
-      console.warn(`🍯 Honeypot accessed: ${dealId} from IP: ${req.ip}`);
-      security.logSuspiciousActivity(req.ip, 'honeypot_access');
-      security.blockIdentifier(req.ip, 1800000); // Block for 30 minutes
+      console.warn(`🍯 Honeypot accessed: ${dealId} from IP: ${getClientIp(req)}`);
+      security.logSuspiciousActivity(getClientIp(req), 'honeypot_access');
+      security.blockIdentifier(getClientIp(req), 1800000); // Block for 30 minutes
       return res.status(403).send(generateErrorPage(
         "Access Denied",
         "Suspicious activity detected. Access has been restricted."
@@ -1975,7 +1978,7 @@ app.get('/redirect/:dealId', redirectLimiter, async (req, res) => {
       ));
     }
 
-    console.log(`🔗 Redirect to deal ${dealId}: "${deal.title}" from IP ${req.ip}`);
+    console.log(`🔗 Redirect to deal ${dealId}: "${deal.title}"  ${getClientIp(req)}`);
     
     // Update click count
     try {
@@ -2053,7 +2056,7 @@ app.get('/deal/:slug', async (req, res) => {
       ));
     }
 
-    console.log(`🔗 Redirecting to Amazon for deal "${deal.title}" (ID: ${deal.id}, Slug: ${deal.slug}) from IP ${req.ip}`);
+    console.log(`🔗 Redirecting to Amazon for deal "${deal.title}" (ID: ${deal.id}, Slug: ${deal.slug}) from IP ${getClientIp(req)}`);
     console.log(`🔗 Amazon URL: ${deal.amazonUrl}`);
     
     res.setHeader('X-Robots-Tag', 'noindex, nofollow');
@@ -2135,8 +2138,8 @@ app.use((req, res, next) => {
   const requestPath = req.path.toLowerCase();
   
   if (blockedFiles.some(file => requestPath === file || requestPath.startsWith(file))) {
-    console.warn(`🚫 Blocked access to sensitive file: ${req.path} from IP: ${req.ip}`);
-    security.logSuspiciousActivity(req.ip, 'sensitive_file_access');
+    console.warn(`🚫 Blocked access to sensitive file: ${req.path} from IP: ${getClientIp(req)}`);
+    security.logSuspiciousActivity(getClientIp(req), 'sensitive_file_access');
     return res.status(403).send(generateErrorPage(
       "Access Denied",
       "This resource is not publicly available"
@@ -2147,8 +2150,8 @@ app.use((req, res, next) => {
   const isAllowedPath = allowedPaths.some(path => requestPath.startsWith(path));
   
   if (!isAllowedPath && blockedExtensions.some(ext => requestPath.endsWith(ext))) {
-    console.warn(`🚫 Blocked access to file with sensitive extension: ${req.path} from IP: ${req.ip}`);
-    security.logSuspiciousActivity(req.ip, 'sensitive_extension_access');
+    console.warn(`🚫 Blocked access to file with sensitive extension: ${req.path} from IP: ${getClientIp(req)}`);
+    security.logSuspiciousActivity(getClientIp(req), 'sensitive_extension_access');
     return res.status(403).send(generateErrorPage(
       "Access Denied", 
       "This file type is not publicly accessible"
@@ -2233,12 +2236,12 @@ app.post('/api/security/violation', (req, res) => {
     console.warn(`🚨 Security violation: ${type} from session ${sessionId}`);
     
     // Log the violation
-    security.logSuspiciousActivity(req.ip, type);
+    security.logSuspiciousActivity(getClientIp(req), type);
     
     // Additional blocking for severe violations
     const severeViolations = ['honeypot_clicked', 'devtools_opened', 'inspection_attempt'];
     if (severeViolations.some(v => type.includes(v))) {
-      security.blockIdentifier(req.ip, 600000); // 10 minutes
+      security.blockIdentifier(getClientIp(req), 600000); // 10 minutes
     }
     
     res.json({ logged: true });
@@ -2280,13 +2283,13 @@ app.post('/api/security/validate-session', (req, res) => {
         expires: Date.now() + (24 * 60 * 60 * 1000), // 24 hours
         fingerprint,
         behaviorScore,
-        ip: req.ip
+        ip: getClientIp(req)
       });
       
       console.log(`✅ Session validated: ${sessionId} (score: ${behaviorScore})`);
     } else {
       console.warn(`🚫 Session rejected: ${sessionId} (score: ${behaviorScore})`);
-      security.logSuspiciousActivity(req.ip, 'session_validation_failed');
+      security.logSuspiciousActivity(getClientIp(req), 'session_validation_failed');
     }
     
     res.json({ 
@@ -2311,7 +2314,7 @@ app.post('/api/security/get-protected-url', (req, res) => {
     
     // Check if session is trusted
     if (!security.isTrustedSession(sessionId)) {
-      security.logSuspiciousActivity(req.ip, 'untrusted_session');
+      security.logSuspiciousActivity(getClientIp(req), 'untrusted_session');
       return res.status(403).json({ error: 'Session not verified' });
     }
     
@@ -2364,12 +2367,12 @@ app.get('/secure-redirect/:key', (req, res) => {
     const tokenValidation = security.validateProtectionToken(
       token, 
       redirectData.dealId, 
-      req.ip, 
+      getClientIp(req), 
       req.headers['user-agent'] || ''
     );
     
     if (!tokenValidation.valid) {
-      security.logSuspiciousActivity(req.ip, 'invalid_token');
+      security.logSuspiciousActivity(getClientIp(req), 'invalid_token');
       return res.status(403).send(generateErrorPage(
         'Access Denied',
         'Security validation failed'
@@ -2378,7 +2381,7 @@ app.get('/secure-redirect/:key', (req, res) => {
     
     // Validate session
     if (redirectData.sessionId !== session) {
-      security.logSuspiciousActivity(req.ip, 'session_mismatch');
+      security.logSuspiciousActivity(getClientIp(req), 'session_mismatch');
       return res.status(403).send(generateErrorPage(
         'Access Denied',
         'Session validation failed'
@@ -2494,7 +2497,7 @@ app.use(express.static('public', {
 }));
 app.use((err, req, res, next) => {
   console.error("❌ Unhandled error:", err);
-  security.logSuspiciousActivity(req.ip, 'server_error');
+  security.logSuspiciousActivity(getClientIp(req), 'server_error');
   res.status(500).send(generateErrorPage(
     "Server Error", 
     "An unexpected error occurred"
@@ -2502,7 +2505,7 @@ app.use((err, req, res, next) => {
 });
 
 app.use((req, res) => {
-  security.logSuspiciousActivity(req.ip, '404_request');
+  security.logSuspiciousActivity(getClientIp(req), '404_request');
   res.status(404).send(generateErrorPage(
     "Page Not Found", 
     "The requested page could not be found"
