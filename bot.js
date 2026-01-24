@@ -388,7 +388,11 @@ const app = express();
 app.set('trust proxy', true);
 
 const getClientIp = (req) => {
-  return req.headers['cf-connecting-ip'] || req.headers['x-forwarded-for'] || getClientIp(req);
+  // نستخدم ترتيب الأولوية: كلاود فلير، ثم البروكسي، ثم الـ IP المباشر
+  return req.headers['cf-connecting-ip'] || 
+         (req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0] : null) || 
+         req.ip || 
+         req.connection.remoteAddress;
 };
 
 
