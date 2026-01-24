@@ -1,5 +1,4 @@
 const TelegramBot = require("node-telegram-bot-api");
-app.set('trust proxy', true);
 const express = require("express");
 const fs = require("fs").promises;
 const path = require("path");
@@ -14,9 +13,7 @@ const AdvancedSecurityManager = require('./security-middleware');
 require('dotenv').config();
 const admin = require("firebase-admin");
 let firebaseConfig;
-const getClientIp = (req) => {
-  return req.headers['cf-connecting-ip'] || req.headers['x-forwarded-for'] || getClientIp(req);
-};
+
 if (process.env.NODE_ENV === 'production' || process.env.RAILWAY_ENVIRONMENT) {
   firebaseConfig = {
     credential: admin.credential.cert({
@@ -388,6 +385,12 @@ let userSessions = new Map();
 let serverProcess = null;
 
 const app = express();
+app.set('trust proxy', true);
+
+const getClientIp = (req) => {
+  return req.headers['cf-connecting-ip'] || req.headers['x-forwarded-for'] || getClientIp(req);
+};
+
 
 app.use(helmet({
   contentSecurityPolicy: {
