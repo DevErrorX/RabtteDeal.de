@@ -2016,9 +2016,7 @@ app.get('/deal/:slug', async (req, res) => {
     deal = deals.find(d => d.slug === slug);
     
     // If not found, try partial slug match (in case of URL variations)
-    if (!deal) {
-      deal = deals.find(d => slug.startsWith(d.slug) || d.slug.startsWith(slug));
-    }
+    
     
     // Last resort: check if slug contains a deal ID
     if (!deal) {
