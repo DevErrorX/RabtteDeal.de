@@ -10,6 +10,7 @@ const xss = require('xss');
 const validator = require('validator');
 const axios = require('axios');
 const AdvancedSecurityManager = require('./security-middleware');
+const VerificationSystem = require('./verification');
 require('dotenv').config();
 const admin = require("firebase-admin");
 let firebaseConfig;
@@ -379,6 +380,7 @@ if (!data.category || !validCategories.includes(data.category.toLowerCase())) {
 
 
 const security = new AdvancedSecurityManager();
+const verify = new VerificationSystem(WEBHOOK_SECRET);
 
 let deals = [];
 let userSessions = new Map();
@@ -561,6 +563,33 @@ app.use('/secure-redirect', (req, res, next) => {
 
 // Advanced security API routes
 app.use('/api/security', apiLimiter);
+
+// ====== INVISIBLE VERIFICATION ENDPOINTS ======
+app.post('/api/verify/challenge', (req, res) => {
+  const challenge = verify.createChallenge();
+  res.json(challenge);
+});
+
+app.post('/api/verify/solve', (req, res) => {
+  const { challenge, nonce, solution, fingerprint } = req.body;
+  if (!challenge || !nonce || !solution || !fingerprint) {
+    return res.status(400).json({ error: 'Missing fields' });
+  }
+  if (!verify.validateSolution(challenge, nonce, solution, fingerprint, req.ip)) {
+    return res.status(403).json({ error: 'Invalid solution' });
+  }
+  const result = verify.issueToken(fingerprint, req.ip);
+  res.json({ success: true, ...result });
+});
+
+app.get('/api/verify/status', (req, res) => {
+  const token = req.headers['x-verify-token'];
+  const fp = req.headers['x-browser-fingerprint'];
+  if (!token || !fp) {
+    return res.json({ valid: false });
+  }
+  res.json({ valid: verify.validateToken(token, fp, req.ip) });
+});
 
 function generateCloudflareRay() {
   const chars = '0123456789abcdef';
@@ -1870,8 +1899,15 @@ dealsRef.on('value', (snapshot) => {
     loadDeals().catch(console.error);
   }, 1000);
 });
-app.get('/api/deals', apiLimiter, async (req, res) => {
+app.get('/api/deals', apiLimiter, verify.rateLimit(100, 60000), async (req, res) => {
   try {
+    // Require verification token
+    const token = req.headers['x-verify-token'] || req.query._vt;
+    const fingerprint = req.headers['x-browser-fingerprint'] || '';
+    if (!token || !fingerprint || !verify.validateToken(token, fingerprint, req.ip)) {
+      return res.status(401).json({ error: 'verification_required' });
+    }
+
     const now = Date.now();
     
     // Always fetch fresh data from Firebase for API calls
@@ -1930,95 +1966,117 @@ app.get('/api/deals', apiLimiter, async (req, res) => {
 app.get('/redirect/:dealId', redirectLimiter, async (req, res) => {
   try {
     const dealId = InputValidator.sanitizeText(req.params.dealId, 50);
-    
-    // Check for honeypot traps
+
     if (security.isHoneypot(`/redirect/${dealId}`) || dealId.includes('honey_')) {
       console.warn(`🍯 Honeypot accessed: ${dealId} from IP: ${req.ip}`);
       security.logSuspiciousActivity(req.ip, 'honeypot_access');
-      security.blockIdentifier(req.ip, 1800000); // Block for 30 minutes
-      return res.status(403).send(generateErrorPage(
-        "Access Denied",
-        "Suspicious activity detected. Access has been restricted."
-      ));
-    }
-    
-    if (!dealId || !/^[0-9a-f]{8,}$/i.test(dealId)) {
-      return res.status(400).send(generateErrorPage(
-        "Invalid Deal ID",
-        "The deal ID format is invalid"
-      ));
+      security.blockIdentifier(req.ip, 1800000);
+      return res.status(403).send(generateErrorPage("Access Denied", "Suspicious activity detected."));
     }
 
-    // Fetch fresh data from Firebase
+    if (!dealId || !/^[0-9a-f]{8,}$/i.test(dealId)) {
+      return res.status(400).send(generateErrorPage("Invalid Deal ID", "The deal ID format is invalid"));
+    }
+
     const snapshot = await dealsRef.child(dealId).once("value");
     const deal = snapshot.val();
-    
+
     if (!deal) {
-      console.warn(`🔍 Deal not found: ${dealId}`);
-      return res.status(404).send(generateErrorPage(
-        "Deal Not Found",
-        "The requested deal could not be found or may have been removed"
-      ));
+      return res.status(404).send(generateErrorPage("Deal Not Found", "The requested deal could not be found"));
     }
 
     if ((deal.timer || 0) <= Date.now()) {
-      return res.status(410).send(generateErrorPage(
-        "Deal Expired",
-        "This deal has expired and is no longer available"
-      ));
+      return res.status(410).send(generateErrorPage("Deal Expired", "This deal has expired"));
     }
 
     if (!InputValidator.validateURL(deal.amazonUrl)) {
-      return res.status(400).send(generateErrorPage(
-        "Invalid Deal URL",
-        "The deal URL is invalid or unsafe"
-      ));
+      return res.status(400).send(generateErrorPage("Invalid Deal URL", "The deal URL is invalid"));
     }
 
-    console.log(`🔗 Redirect to deal ${dealId}: "${deal.title}" from IP ${req.ip}`);
-    
-    // Update click count
-    try {
-      await dealsRef.child(dealId).child('clicks').transaction((currentClicks) => {
-        return (currentClicks || 0) + 1;
-      });
-    } catch (clickError) {
-      console.warn('⚠️ Failed to update click count:', clickError);
+    // If token provided, validate and redirect directly
+    const token = req.query._vt;
+    const fingerprint = req.query._fp;
+    if (token && fingerprint && verify.validateToken(token, fingerprint, req.ip)) {
+      console.log(`🔗 Redirect (verified) to deal ${dealId}: "${deal.title}" from IP ${req.ip}`);
+      try { await dealsRef.child(dealId).child('clicks').transaction(c => (c || 0) + 1); } catch (e) {}
+      res.setHeader('X-Robots-Tag', 'noindex, nofollow');
+      res.setHeader('Referrer-Policy', 'no-referrer');
+      return res.redirect(302, deal.amazonUrl);
     }
-    
+
+    // No token: serve verification page
+    console.log(`📄 Serving redirect verification page for deal ${dealId} from IP ${req.ip}`);
+
+    const honeypotLinks = verify.getHoneypotUrls()
+      .map(u => `<a href="${u}" style="position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden" aria-hidden="true">info</a>`)
+      .join('');
+
     res.setHeader('X-Robots-Tag', 'noindex, nofollow');
     res.setHeader('Referrer-Policy', 'no-referrer');
-    
-    res.redirect(302, deal.amazonUrl);
+    res.setHeader('X-Frame-Options', 'DENY');
+
+    res.send(`<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Weiterleitung... - Rabatte&Deal&DE</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:system-ui,-apple-system,sans-serif;background:#0a0a0a;color:#fff;min-height:100vh;display:flex;align-items:center;justify-content:center}
+.c{text-align:center;max-width:500px;padding:2rem}
+.sp{width:40px;height:40px;border:3px solid #333;border-top-color:#6366f1;border-radius:50%;animation:s .8s linear infinite;margin:0 auto 1.5rem}
+@keyframes s{to{transform:rotate(360deg)}}
+.t{color:#a3a3a3;font-size:.95rem}
+</style>
+</head>
+<body>
+${honeypotLinks}
+<div class="c"><div class="sp"></div><p class="t">Weiterleitung wird vorbereitet...</p></div>
+<script>
+(function(){
+var _DID="${dealId.replace(/"/g,'\\"')}",_URL="${deal.amazonUrl.replace(/"/g,'\\"')}";
+function _FP(){
+try{var c=document.createElement('canvas');c.width=200;c.height=50;var x=c.getContext('2d');x.textBaseline='top';x.font='14px Arial';x.fillStyle='#f60';x.fillRect(125,1,62,20);x.fillStyle='#069';x.fillText('vrf',2,15);x.fillStyle='rgba(102,204,0,0.7)';x.fillText('vrf',4,17);var cv=c.toDataURL()}catch(e){cv=''}
+try{var g=document.createElement('canvas').getContext('webgl');var w=g.getParameter(g.RENDERER)||'';var v=g.getParameter(g.VENDOR)||''}catch(e){w='';v=''}
+return cv+'|'+w+'|'+v+'|'+navigator.hardwareConcurrency+'|'+navigator.platform}
+function _H(){if(navigator.webdriver)return!0;if(!navigator.languages||!navigator.languages.length)return!0;if(/HeadlessChrome|PhantomJS|Selenium/i.test(navigator.userAgent))return!0;return!1}
+async function _PoW(c,n,d){for(var i=0;i<10000000;i++){var s=i.toString(16);var r=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(c+n+s));var h=Array.from(new Uint8Array(r)).map(function(b){return b.toString(16).padStart(2,'0')}).join('');if(h.startsWith('0'.repeat(d)))return s}return null}
+async function go(){
+if(_H()){window.location.href='/';return}
+var fp=_FP();
+try{
+var cr=await fetch('/api/verify/challenge',{method:'POST'});
+var ch=await cr.json();
+var sol=await _PoW(ch.challenge,ch.nonce,ch.difficulty);
+if(!sol)return;
+var sr=await fetch('/api/verify/solve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({challenge:ch.challenge,nonce:ch.nonce,solution:sol,fingerprint:fp})});
+var rs=await sr.json();
+if(rs.success){
+sessionStorage.setItem('_v',JSON.stringify({token:rs.token,exp:rs.expires,fp:fp}));
+window.location.href=_URL;
+}
+}catch(e){}
+}
+go();
+})();
+</script>
+</body></html>`);
+
   } catch (error) {
     console.error("❌ Error handling redirect:", error);
-    res.status(500).send(generateErrorPage(
-      "Server Error",
-      "An error occurred while processing your request"
-    ));
+    res.status(500).send(generateErrorPage("Server Error", "An error occurred"));
   }
 });
 
 app.get('/deal/:slug', async (req, res) => {
   try {
     const slug = InputValidator.sanitizeText(req.params.slug, 100);
-    
     if (!slug || slug.length < 3) {
-      return res.status(400).send(generateErrorPage(
-        "Invalid Deal URL", 
-        "The deal URL format is invalid"
-      ));
+      return res.status(400).send(generateErrorPage("Invalid Deal URL", "The deal URL format is invalid"));
     }
 
-    let deal = null;
-    
-    // First, try to find by exact slug match
-    deal = deals.find(d => d.slug === slug);
-    
-    // If not found, try partial slug match (in case of URL variations)
-    
-    
-    // Last resort: check if slug contains a deal ID
+    let deal = deals.find(d => d.slug === slug);
     if (!deal) {
       const slugParts = slug.split('-');
       for (const part of slugParts) {
@@ -2028,50 +2086,104 @@ app.get('/deal/:slug', async (req, res) => {
         }
       }
     }
-    
+
     if (!deal) {
-      console.warn(`🔍 Deal not found for slug: ${slug}`);
-      return res.status(404).send(generateErrorPage(
-        "Deal Not Found", 
-        "The requested deal could not be found"
-      ));
+      return res.status(404).send(generateErrorPage("Deal Not Found", "The requested deal could not be found"));
     }
 
     if (deal.timer <= Date.now()) {
-      return res.status(410).send(generateErrorPage(
-        "Deal Expired", 
-        "This deal has expired and is no longer available"
-      ));
+      return res.status(410).send(generateErrorPage("Deal Expired", "This deal has expired and is no longer available"));
     }
 
     if (!InputValidator.validateURL(deal.amazonUrl)) {
-      return res.status(400).send(generateErrorPage(
-        "Invalid Deal URL", 
-        "The deal URL is invalid or unsafe"
-      ));
+      return res.status(400).send(generateErrorPage("Invalid Deal URL", "The deal URL is invalid or unsafe"));
     }
 
-    console.log(`🔗 Redirecting to Amazon for deal "${deal.title}" (ID: ${deal.id}, Slug: ${deal.slug}) from IP ${req.ip}`);
-    console.log(`🔗 Amazon URL: ${deal.amazonUrl}`);
-    
+    console.log(`📄 Serving deal page "${deal.title}" (ID: ${deal.id}) from IP ${req.ip}`);
+
+    const honeypotLinks = verify.getHoneypotUrls()
+      .map(u => `<a href="${u}" style="position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden" aria-hidden="true">info</a>`)
+      .join('');
+
     res.setHeader('X-Robots-Tag', 'noindex, nofollow');
     res.setHeader('Referrer-Policy', 'no-referrer');
-    res.setHeader('CF-Cache-Status', 'DYNAMIC');
-    res.setHeader('CF-Ray', generateCloudflareRay());
-    res.setHeader('Server', 'cloudflare');
-    
-    res.redirect(302, deal.amazonUrl);
-    
+    res.setHeader('X-Frame-Options', 'DENY');
+
+    res.send(`<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>${verify.escapeHtml(deal.title)} - Rabatte&Deal&DE</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:system-ui,-apple-system,sans-serif;background:#0a0a0a;color:#fff;min-height:100vh;display:flex;align-items:center;justify-content:center}
+.c{text-align:center;max-width:500px;padding:2rem}
+.sp{width:40px;height:40px;border:3px solid #333;border-top-color:#6366f1;border-radius:50%;animation:s .8s linear infinite;margin:0 auto 1.5rem}
+@keyframes s{to{transform:rotate(360deg)}}
+.t{color:#a3a3a3;font-size:.95rem}
+</style>
+</head>
+<body>
+${honeypotLinks}
+<div class="c"><div class="sp"></div><p class="t">Laden...</p></div>
+<script>
+(function(){
+var _D=${JSON.stringify({id:deal.id,title:deal.title,description:deal.description,price:deal.price,oldPrice:deal.oldPrice,discount:deal.discount,category:deal.category,coupon:deal.coupon,rating:deal.rating,reviews:deal.reviews,badge:deal.badge,slug:deal.slug,imageUrl:deal.imageUrl || '/secure-image/'+deal.id})};
+function _E(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML}
+function _FP(){
+try{var c=document.createElement('canvas');c.width=200;c.height=50;var x=c.getContext('2d');x.textBaseline='top';x.font='14px Arial';x.fillStyle='#f60';x.fillRect(125,1,62,20);x.fillStyle='#069';x.fillText('vrf',2,15);x.fillStyle='rgba(102,204,0,0.7)';x.fillText('vrf',4,17);var cv=c.toDataURL()}catch(e){cv=''}
+try{var g=document.createElement('canvas').getContext('webgl');var w=g.getParameter(g.RENDERER)||'';var v=g.getParameter(g.VENDOR)||''}catch(e){w='';v=''}
+return cv+'|'+w+'|'+v+'|'+navigator.hardwareConcurrency+'|'+navigator.platform}
+function _H(){if(navigator.webdriver)return!0;if(!navigator.languages||!navigator.languages.length)return!0;if(/HeadlessChrome|PhantomJS|Selenium/i.test(navigator.userAgent))return!0;return!1}
+async function _PoW(c,n,d){for(var i=0;i<10000000;i++){var s=i.toString(16);var r=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(c+n+s));var h=Array.from(new Uint8Array(r)).map(function(b){return b.toString(16).padStart(2,'0')}).join('');if(h.startsWith('0'.repeat(d)))return s}return null}
+function _hdr(t,f){return{'Content-Type':'application/json','X-Verify-Token':t,'X-Browser-Fingerprint':f}}
+async function go(){
+if(_H())return;
+var fp=_FP();
+var st=JSON.parse(sessionStorage.getItem('_v')||'{}');
+var tk=null;
+if(st.token&&st.exp>Date.now()&&st.fp===fp){tk=st.token}
+if(!tk){
+var cr=await fetch('/api/verify/challenge',{method:'POST'});
+var ch=await cr.json();
+var sol=await _PoW(ch.challenge,ch.nonce,ch.difficulty);
+if(!sol)return;
+var sr=await fetch('/api/verify/solve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({challenge:ch.challenge,nonce:ch.nonce,solution:sol,fingerprint:fp})});
+var rs=await sr.json();
+if(rs.success){tk=rs.token;sessionStorage.setItem('_v',JSON.stringify({token:tk,exp:rs.expires,fp:fp}))}
+}
+if(!tk)return;
+document.title=_D.title+' - Rabatte&Deal&DE';
+var sc=Math.round(((_D.oldPrice-_D.price)/_D.oldPrice)*100);
+var cp=_D.coupon?'<div style="background:#f59e0b;color:#fff;padding:.75rem 1rem;border-radius:8px;margin-bottom:1rem;display:flex;align-items:center;justify-content:center;gap:.5rem;cursor:pointer" id="cpn" data-c="'+_E(_D.coupon)+'">🎫 Coupon: <code style="background:rgba(255,255,255,.2);padding:.2rem .5rem;border-radius:4px;font-family:monospace;font-weight:600">'+_E(_D.coupon)+'</code><span style="font-size:.75rem;opacity:.8">(klicken)</span></div>':'';
+document.body.innerHTML='<div style="max-width:600px;margin:2rem auto;padding:1.5rem"><div style="text-align:center;margin-bottom:2rem"><h1 style="font-size:1.5rem;font-weight:800;color:#6366f1">Rabatte&Deal&DE</h1></div><div style="background:#1f1f1f;border-radius:16px;overflow:hidden;border:1px solid #262626"><div style="position:relative;height:300px;overflow:hidden"><img src="'+_E(_D.imageUrl)+'" alt="'+_E(_D.title)+'" style="width:100%;height:100%;object-fit:contain;background:#111" onerror="this.src=\'https://via.placeholder.com/400?text=Image\'"><div style="position:absolute;top:.75rem;left:.75rem;background:#6366f1;color:#fff;padding:.25rem .75rem;border-radius:20px;font-size:.75rem;font-weight:600;text-transform:uppercase">'+_E(_D.category)+'</div><div style="position:absolute;bottom:.75rem;left:.75rem;background:#10b981;color:#fff;padding:.25rem .5rem;border-radius:8px;font-weight:700;font-size:.8rem">-'+sc+'%</div></div><div style="padding:1.5rem"><h2 style="font-size:1.25rem;font-weight:600;margin-bottom:.75rem;line-height:1.4">'+_E(_D.title)+'</h2><p style="color:#a3a3a3;font-size:.95rem;margin-bottom:1rem;line-height:1.5">'+_E(_D.description)+'</p>'+cp+'<div style="display:flex;align-items:center;gap:.75rem;margin-bottom:1rem"><span style="font-size:1.5rem;font-weight:700;color:#10b981">€'+_D.price+'</span><span style="font-size:1rem;color:#737373;text-decoration:line-through">€'+_D.oldPrice+'</span><span style="color:#10b981;font-weight:600">-'+sc+'%</span></div><div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem;color:#a3a3a3;font-size:.9rem"><span>⭐ '+(_D.rating||'4.5')+'/5</span><span>('+( _D.reviews||'0')+' Bewertungen)</span></div><button id="gdl" style="width:100%;background:#6366f1;color:#fff;border:none;padding:1rem;border-radius:12px;font-weight:700;font-size:1.1rem;cursor:pointer;transition:background .2s">🛒 Zum Deal auf Amazon</button></div></div></div>';
+if(document.getElementById('cpn')){document.getElementById('cpn').onclick=function(e){e.stopPropagation();navigator.clipboard.writeText(this.dataset.c)}}
+document.getElementById('gdl').onclick=function(){
+var b=this;b.disabled=true;b.textContent='Weiterleiten...';
+fetch('/api/deal/'+_D.slug,{headers:_hdr(tk,fp)}).then(function(r){return r.json()}).then(function(d){
+if(d.amazonUrl){window.location.href=d.amazonUrl}
+else{b.disabled=false;b.textContent='🛒 Zum Deal auf Amazon';alert('Fehler')}
+}).catch(function(){b.disabled=false;b.textContent='🛒 Zum Deal auf Amazon'})}
+}
+go();
+})();
+</script>
+</body></html>`);
   } catch (error) {
-    console.error("❌ Error handling deal redirect:", error);
-    res.status(500).send(generateErrorPage(
-      "Server Error", 
-      "An error occurred while processing your request"
-    ));
+    console.error("❌ Error handling deal page:", error);
+    res.status(500).send(generateErrorPage("Server Error", "An error occurred while processing your request"));
   }
 });
 app.get('/api/deal/:slug', apiLimiter, async (req, res) => {
   try {
+    // Require verification token
+    const token = req.headers['x-verify-token'] || req.query._vt;
+    const fingerprint = req.headers['x-browser-fingerprint'] || '';
+    if (!token || !fingerprint || !verify.validateToken(token, fingerprint, req.ip)) {
+      return res.status(401).json({ error: 'verification_required' });
+    }
+
     const slug = InputValidator.sanitizeText(req.params.slug, 100);
     if (!slug || slug.length < 3) {
       return res.status(400).json({ error: 'Invalid deal slug format' });
@@ -2100,6 +2212,7 @@ app.get('/api/deal/:slug', apiLimiter, async (req, res) => {
       discount: deal.discount,
       category: deal.category,
       imageUrl: `/secure-image/${deal.id}`,
+      amazonUrl: deal.amazonUrl,
       coupon: deal.coupon,
       rating: deal.rating,
       reviews: deal.reviews,
@@ -2156,21 +2269,35 @@ app.use((req, res, next) => {
   next();
 });
 app.get('/api/deals/stream', (req, res) => {
+  const token = req.query._vt;
+  const fingerprint = req.query._fp;
+  if (!token || !fingerprint || !verify.validateToken(token, fingerprint, req.ip)) {
+    return res.status(401).json({ error: 'verification_required' });
+  }
+
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
-  
-  const sendUpdate = (deals) => {
+
+  const sendUpdate = (allDeals) => {
+    const now = Date.now();
+    const deals = Object.values(allDeals || {}).filter(d =>
+      d && d.id && d.title && (d.timer || 0) > now
+    ).map(d => ({
+      id: d.id, slug: d.slug, title: d.title, description: d.description,
+      price: d.price, oldPrice: d.oldPrice, discount: d.discount,
+      category: d.category, imageUrl: `/secure-image/${d.id}`,
+      coupon: d.coupon, rating: d.rating, reviews: d.reviews,
+      badge: d.badge, timer: d.timer
+    }));
     res.write(`data: ${JSON.stringify(deals)}\n\n`);
   };
-  
-  dealsRef.on('value', (snapshot) => {
-    const deals = snapshot.val() || [];
-    sendUpdate(Object.values(deals));
-  });
-  
+
+  const listener = (snapshot) => { sendUpdate(snapshot.val()); };
+  dealsRef.on('value', listener);
+
   req.on('close', () => {
-    dealsRef.off('value');
+    dealsRef.off('value', listener);
   });
 });
 
