@@ -1935,18 +1935,6 @@
             }
             return originalFetch.apply(this, args);
         };
-
-        Object.defineProperty(window, 'console', {
-            value: {},
-            writable: false,
-            configurable: false
-        });
-
-        setInterval(() => {
-            if (window.console && window.console.clear) {
-                window.console.clear();
-            }
-        }, 1000);
     </script>
     
     <!-- Invisible Security System -->
