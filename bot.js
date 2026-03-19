@@ -2043,24 +2043,27 @@ ${honeypotLinks}
 <script>
 (function(){
 var _DID="${dealId.replace(/"/g,'\\"')}",_URL="${deal.amazonUrl.replace(/"/g,'\\"')}";
+function _E(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML}
 function _FP(){var cv='',w='',v='';try{var c=document.createElement('canvas');c.width=200;c.height=50;var x=c.getContext('2d');x.textBaseline='top';x.font='14px Arial';x.fillStyle='#f60';x.fillRect(125,1,62,20);x.fillStyle='#069';x.fillText('vrf',2,15);x.fillStyle='rgba(102,204,0,0.7)';x.fillText('vrf',4,17);cv=c.toDataURL()}catch(e){}try{var g=document.createElement('canvas').getContext('webgl');if(g){w=g.getParameter(g.RENDERER)||'';v=g.getParameter(g.VENDOR)||''}}catch(e){}return cv+'|'+w+'|'+v+'|'+(navigator.hardwareConcurrency||0)+'|'+(navigator.platform||'')}
 function _H(){if(navigator.webdriver)return!0;if(!navigator.languages||!navigator.languages.length)return!0;if(/HeadlessChrome|PhantomJS|Selenium|Puppeteer/i.test(navigator.userAgent))return!0;return!1}
 async function _PoW(c,n,d){if(!crypto||!crypto.subtle)return null;try{var p='0'.repeat(d);for(var i=0;i<5000000;i++){var s=i.toString(16);var r=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(c+n+s));var h=Array.from(new Uint8Array(r)).map(function(b){return b.toString(16).padStart(2,'0')}).join('');if(h.startsWith(p))return s}}catch(e){console.warn('PoW err:',e.message)}return null}
-async function _fj(u,b){try{var r=await fetch(u,b?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}:{method:'POST'});return await r.json()}catch(e){return null}}
+async function _fj(u,b){try{var r=await fetch(u,b?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}:{method:'POST'});var txt=await r.text();if(txt.charAt(0)==='<')return null;return JSON.parse(txt)}catch(e){return null}}
+function _showErr(msg){document.body.innerHTML='<div style="max-width:500px;margin:2rem auto;padding:2rem;text-align:center"><h1 style="font-size:1.5rem;font-weight:800;color:#6366f1;margin-bottom:1rem">Rabatte&Deal&DE</h1><p style="color:#a3a3a3;margin-bottom:1.5rem">'+_E(msg)+'</p><a href="'+_URL+'" style="display:inline-block;background:#6366f1;color:#fff;padding:.75rem 2rem;border-radius:8px;text-decoration:none;font-weight:600">Direkt zu Amazon</a><br><br><a href="/" style="color:#6366f1;text-decoration:none">Zur Startseite</a></div>'}
 async function go(){
 if(_H()){window.location.href='/';return}
 var fp=_FP();
 var ch=await _fj('/api/verify/challenge');
-if(!ch||!ch.challenge)return;
+if(!ch||!ch.challenge){_showErr('Sicherheitsprüfung nicht möglich');return}
 var sol=await _PoW(ch.challenge,ch.nonce,ch.difficulty);
-if(!sol)return;
+if(!sol){_showErr('Verifizierung fehlgeschlagen');return}
 var rs=await _fj('/api/verify/solve',{challenge:ch.challenge,nonce:ch.nonce,solution:sol,fingerprint:fp});
 if(rs&&rs.success){
 sessionStorage.setItem('_v',JSON.stringify({token:rs.token,exp:rs.expires,fp:fp}));
 window.location.href=_URL;
+}else{_showErr('Verifizierung fehlgeschlagen')}
 }
-}
-go();
+var _timer=setTimeout(function(){_showErr('Zeitüberschreitung')},15000);
+go().then(function(){clearTimeout(_timer)}).catch(function(){clearTimeout(_timer);_showErr('Fehler aufgetreten')});
 })();
 </script>
 </body></html>`);
@@ -2137,22 +2140,24 @@ function _FP(){var cv='',w='',v='';try{var c=document.createElement('canvas');c.
 function _H(){if(navigator.webdriver)return!0;if(!navigator.languages||!navigator.languages.length)return!0;if(/HeadlessChrome|PhantomJS|Selenium|Puppeteer/i.test(navigator.userAgent))return!0;return!1}
 async function _PoW(c,n,d){if(!crypto||!crypto.subtle)return null;try{var p='0'.repeat(d);for(var i=0;i<5000000;i++){var s=i.toString(16);var r=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(c+n+s));var h=Array.from(new Uint8Array(r)).map(function(b){return b.toString(16).padStart(2,'0')}).join('');if(h.startsWith(p))return s}}catch(e){console.warn('PoW err:',e.message)}return null}
 function _hdr(t,f){return{'Content-Type':'application/json','X-Verify-Token':t,'X-Browser-Fingerprint':f}}
-async function _fj(u,b){try{var r=await fetch(u,b?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}:{method:'POST'});return await r.json()}catch(e){console.warn('fetch err:',e.message);return null}}
+async function _fj(u,b){try{var r=await fetch(u,b?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}:{method:'POST'});var txt=await r.text();if(txt.charAt(0)==='<'||txt.indexOf('challenge')>-1)return null;return JSON.parse(txt)}catch(e){console.warn('fetch err:',e.message);return null}}
+function _showError(msg){document.body.innerHTML='<div style="max-width:500px;margin:2rem auto;padding:2rem;text-align:center"><h1 style="font-size:1.5rem;font-weight:800;color:#6366f1;margin-bottom:1rem">Rabatte&Deal&DE</h1><p style="color:#a3a3a3;margin-bottom:1.5rem">'+_E(msg)+'</p><button onclick="location.reload()" style="background:#6366f1;color:#fff;border:none;padding:.75rem 2rem;border-radius:8px;font-weight:600;cursor:pointer;font-size:1rem">Erneut versuchen</button><br><br><a href="/" style="color:#6366f1;text-decoration:none">Zur Startseite</a></div>'}
 async function go(){
-if(_H())return;
+if(_H()){_showError('Browser nicht unterstützt');return}
 var fp=_FP();
 var st=null;try{st=JSON.parse(sessionStorage.getItem('_v')||'{}')}catch(e){st={}}
 var tk=null;
 if(st.token&&st.exp>Date.now()&&st.fp===fp){tk=st.token}
 if(!tk){
 var ch=await _fj('/api/verify/challenge');
-if(!ch||!ch.challenge)return;
+if(!ch||!ch.challenge){_showError('Sicherheitsprüfung fehlgeschlagen');return}
 var sol=await _PoW(ch.challenge,ch.nonce,ch.difficulty);
-if(!sol)return;
+if(!sol){_showError('Verifizierung fehlgeschlagen');return}
 var rs=await _fj('/api/verify/solve',{challenge:ch.challenge,nonce:ch.nonce,solution:sol,fingerprint:fp});
 if(rs&&rs.success){tk=rs.token;sessionStorage.setItem('_v',JSON.stringify({token:tk,exp:rs.expires,fp:fp}))}
+else{_showError('Verifizierung fehlgeschlagen');return}
 }
-if(!tk)return;
+if(!tk){_showError('Token fehler');return}
 document.title=_D.title+' - Rabatte&Deal&DE';
 var sc=Math.round(((_D.oldPrice-_D.price)/_D.oldPrice)*100);
 var cp=_D.coupon?'<div style="background:#f59e0b;color:#fff;padding:.75rem 1rem;border-radius:8px;margin-bottom:1rem;display:flex;align-items:center;justify-content:center;gap:.5rem;cursor:pointer" id="cpn" data-c="'+_E(_D.coupon)+'">🎫 Coupon: <code style="background:rgba(255,255,255,.2);padding:.2rem .5rem;border-radius:4px;font-family:monospace;font-weight:600">'+_E(_D.coupon)+'</code><span style="font-size:.75rem;opacity:.8">(klicken)</span></div>':'';
@@ -2162,10 +2167,11 @@ document.getElementById('gdl').onclick=function(){
 var b=this;b.disabled=true;b.textContent='Weiterleiten...';
 fetch('/api/deal/'+_D.slug,{headers:_hdr(tk,fp)}).then(function(r){return r.json()}).then(function(d){
 if(d.amazonUrl){window.location.href=d.amazonUrl}
-else{b.disabled=false;b.textContent='🛒 Zum Deal auf Amazon';alert('Fehler')}
+else{b.disabled=false;b.textContent='🛒 Zum Deal auf Amazon'}
 }).catch(function(){b.disabled=false;b.textContent='🛒 Zum Deal auf Amazon'})}
 }
-go();
+var _timer=setTimeout(function(){_showError('Zeitüberschreitung - Bitte Seite neu laden')},15000);
+go().then(function(){clearTimeout(_timer)}).catch(function(e){clearTimeout(_timer);_showError('Fehler: '+(e.message||'Unbekannt'))});
 })();
 </script>
 </body></html>`);

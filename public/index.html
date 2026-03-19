@@ -1333,7 +1333,9 @@
             fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined}),
             timeoutPromise(10000)
           ]);
-          return await r.json()
+          var txt=await r.text();
+          if(txt.charAt(0)==='<'||txt.indexOf('challenge')>-1){console.warn('Got HTML instead of JSON from',url);return null}
+          return JSON.parse(txt)
         }catch(e){console.warn('Fetch error:',url,e.message);return null}
       }
 
