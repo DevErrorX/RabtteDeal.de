@@ -2125,7 +2125,7 @@ ${honeypotLinks}
 <div class="c"><div class="sp"></div><p class="t">Laden...</p></div>
 <script>
 (function(){
-var _D=${JSON.stringify({id:deal.id,title:deal.title,description:deal.description,price:deal.price,oldPrice:deal.oldPrice,discount:deal.discount,category:deal.category,coupon:deal.coupon,rating:deal.rating,reviews:deal.reviews,badge:deal.badge,slug:deal.slug,imageUrl:deal.imageUrl || '/secure-image/'+deal.id})};
+var _D=JSON.parse(atob('${Buffer.from(JSON.stringify({id:deal.id,title:deal.title,description:deal.description,price:deal.price,oldPrice:deal.oldPrice,discount:deal.discount,category:deal.category,coupon:deal.coupon,rating:deal.rating,reviews:deal.reviews,badge:deal.badge,slug:deal.slug,imageUrl:deal.imageUrl || '/secure-image/'+deal.id})).toString('base64')}'));
 function _E(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML}
 function _FP(){var cv='',w='',v='';try{var c=document.createElement('canvas');c.width=200;c.height=50;var x=c.getContext('2d');x.textBaseline='top';x.font='14px Arial';x.fillStyle='#f60';x.fillRect(125,1,62,20);x.fillStyle='#069';x.fillText('vrf',2,15);x.fillStyle='rgba(102,204,0,0.7)';x.fillText('vrf',4,17);cv=c.toDataURL().substring(0,100)}catch(e){}try{var g=document.createElement('canvas').getContext('webgl');if(g){w=g.getParameter(g.RENDERER)||'';v=g.getParameter(g.VENDOR)||''}}catch(e){}return cv+'|'+w+'|'+v+'|'+(navigator.hardwareConcurrency||0)+'|'+(navigator.platform||'')}
 function _H(){if(navigator.webdriver)return!0;if(!navigator.languages||!navigator.languages.length)return!0;if(/HeadlessChrome|PhantomJS|Selenium|Puppeteer/i.test(navigator.userAgent))return!0;return!1}
