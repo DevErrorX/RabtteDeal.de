@@ -69,8 +69,15 @@ const NODE_ENV = process.env.NODE_ENV || 'development';
 
 let bot;
 try {
-  bot = new TelegramBot(BOT_TOKEN, { 
-    polling: true,
+  // Kill any existing polling connection before starting
+  const tempBot = new TelegramBot(BOT_TOKEN, { polling: false });
+  tempBot.deleteWebHook().catch(() => {});
+
+  bot = new TelegramBot(BOT_TOKEN, {
+    polling: {
+      params: { timeout: 30 },
+      autoStart: true
+    },
     request: {
       agentOptions: {
         keepAlive: true,
@@ -2664,7 +2671,14 @@ bot.on('error', (error) => {
 });
 
 bot.on('polling_error', (error) => {
-  console.error('❌ Telegram polling error:', error);
+  console.error('❌ Telegram polling error:', error.code || error.message);
+  if (error.code === 'ETELEGRAM' && error.response && error.response.statusCode === 409) {
+    console.log('🔄 Restarting bot polling in 5 seconds...');
+    bot.stopPolling();
+    setTimeout(() => {
+      bot.startPolling().catch(e => console.error('Failed to restart polling:', e.message));
+    }, 5000);
+  }
 });
 
 if (require.main === module) {
