@@ -2105,41 +2105,63 @@ app.get('/deal/:slug', async (req, res) => {
     res.setHeader('Referrer-Policy', 'no-referrer');
     res.setHeader('X-Frame-Options', 'DENY');
 
-    var dealJSON = Buffer.from(JSON.stringify({
+    var dealJSON = JSON.stringify({
       id:deal.id, title:deal.title, description:deal.description,
       price:deal.price, oldPrice:deal.oldPrice, discount:deal.discount,
       category:deal.category, coupon:deal.coupon, rating:deal.rating,
       reviews:deal.reviews, badge:deal.badge, slug:deal.slug,
       imageUrl: deal.imageUrl || '/secure-image/'+deal.id
-    })).toString('base64');
+    });
 
-    res.send('<!DOCTYPE html><html lang="de"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Loading - RabatteDeal</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:system-ui;background:#0a0a0a;color:#fff;min-height:100vh;display:flex;align-items:center;justify-content:center}.c{text-align:center;padding:2rem}.sp{width:40px;height:40px;border:3px solid #333;border-top-color:#6366f1;border-radius:50%;animation:sp .8s linear infinite;margin:0 auto 1rem}@keyframes sp{to{transform:rotate(360deg)}}p{color:#888}</style></head><body><div class="c"><div class="sp"></div><p>Loading...</p></div><script src="/deal-script/' + deal.slug + '?d=' + dealJSON + '"><\/script></body></html>');
+    res.send('<!DOCTYPE html><html lang="de"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Loading - RabatteDeal</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:system-ui;background:#0a0a0a;color:#fff;min-height:100vh;display:flex;align-items:center;justify-content:center}.c{text-align:center;padding:2rem}.sp{width:40px;height:40px;border:3px solid #333;border-top-color:#6366f1;border-radius:50%;animation:sp .8s linear infinite;margin:0 auto 1rem}@keyframes sp{to{transform:rotate(360deg)}}p{color:#888}</style></head><body><div class="c"><div class="sp"></div><p>Loading...</p></div><script type="application/json" id="deal-data">' + dealJSON.replace(/</g, '\\u003c') + '</script><script src="/deal.js"><\/script></body></html>');
   } catch (error) {
     console.error("❌ Error handling deal page:", error);
     res.status(500).send(generateErrorPage("Server Error", "An error occurred while processing your request"));
   }
 });
 
-app.get('/deal-script/:slug', (req, res) => {
-  var d = req.query.d;
-  if (!d) return res.status(400).send('');
+app.get('/deal.js', (req, res) => {
   res.setHeader('Content-Type', 'application/javascript');
-  res.setHeader('Cache-Control', 'no-store');
-  res.send('var _D=JSON.parse(atob("' + d + '"));' +
-'function _E(s){var d=document.createElement("div");d.textContent=s;return d.innerHTML}' +
-'function _FP(){var cv="",w="",v="";try{var c=document.createElement("canvas");c.width=200;c.height=50;var x=c.getContext("2d");x.textBaseline="top";x.font="14px Arial";x.fillStyle="#f60";x.fillRect(125,1,62,20);x.fillStyle="#069";x.fillText("vrf",2,15);x.fillStyle="rgba(102,204,0,0.7)";x.fillText("vrf",4,17);cv=c.toDataURL().substring(0,100)}catch(e){}try{var g=document.createElement("canvas").getContext("webgl");if(g){w=g.getParameter(g.RENDERER)||"";v=g.getParameter(g.VENDOR)||""}}catch(e){}return cv+"|"+w+"|"+v+"|"+(navigator.hardwareConcurrency||0)+"|"+(navigator.platform||"")}' +
-'function _H(){if(navigator.webdriver)return true;if(!navigator.languages||!navigator.languages.length)return true;if(/HeadlessChrome|PhantomJS|Selenium|Puppeteer/i.test(navigator.userAgent))return true;return false}' +
-'async function go(){if(_H()){document.body.innerHTML="<p style=\\"text-align:center;padding:2rem;color:#888\\">Browser not supported</p>";return}' +
-'var fp=_FP();var st=null;try{st=JSON.parse(sessionStorage.getItem("_v")||"{}")}catch(e){st={}}var tk=null;if(st.token&&st.exp>Date.now()&&st.fp===fp){tk=st.token}' +
-'if(!tk){try{var r=await fetch("/api/verify/simple",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({fingerprint:fp})});var rs=await r.json();if(rs&&rs.success&&rs.token){tk=rs.token;sessionStorage.setItem("_v",JSON.stringify({token:tk,exp:rs.expires,fp:fp}))}}catch(e){}}' +
-'if(!tk){document.body.innerHTML="<p style=\\"text-align:center;padding:2rem;color:#ef4444\\">Verification failed. <a href=\\"/\\" style=\\"color:#6366f1\\">Home</a></p>";return}' +
-'document.title=_D.title+" - Rabatte&Deal&DE";var sc=Math.round(((_D.oldPrice-_D.price)/_D.oldPrice)*100);' +
-'var cp=_D.coupon?"<div style=\\"background:#f59e0b;color:#fff;padding:.75rem 1rem;border-radius:8px;margin-bottom:1rem;cursor:pointer;text-align:center\\" id=\\"cpn\\" data-c=\\""+_E(_D.coupon)+"\\">Coupon: <code style=\\"background:rgba(255,255,255,.2);padding:.2rem .5rem;border-radius:4px;font-family:monospace\\">"+_E(_D.coupon)+"</code> (click)</div>":"";' +
-'document.body.innerHTML="<div style=\\"max-width:600px;margin:2rem auto;padding:1.5rem\\"><div style=\\"text-align:center;margin-bottom:2rem\\"><h1 style=\\"font-size:1.5rem;font-weight:800;color:#6366f1\\">Rabatte&Deal&DE</h1></div><div style=\\"background:#1f1f1f;border-radius:16px;overflow:hidden;border:1px solid #262626\\"><div style=\\"position:relative;height:300px;overflow:hidden\\"><img src=\\""+_E(_D.imageUrl)+"\\" style=\\"width:100%;height:100%;object-fit:contain;background:#111\\" onerror=\\"this.src=\\x27https://via.placeholder.com/400?text=Image\\x27\\"><div style=\\"position:absolute;top:.75rem;left:.75rem;background:#6366f1;color:#fff;padding:.25rem .75rem;border-radius:20px;font-size:.75rem;text-transform:uppercase\\">"+_E(_D.category)+"</div><div style=\\"position:absolute;bottom:.75rem;left:.75rem;background:#10b981;color:#fff;padding:.25rem .5rem;border-radius:8px;font-weight:700\\">-"+sc+"%</div></div><div style=\\"padding:1.5rem\\"><h2 style=\\"font-size:1.25rem;font-weight:600;margin-bottom:.75rem\\">"+_E(_D.title)+"</h2><p style=\\"color:#a3a3a3;margin-bottom:1rem\\">"+_E(_D.description)+"</p>"+cp+"<div style=\\"display:flex;align-items:center;gap:.75rem;margin-bottom:1rem\\"><span style=\\"font-size:1.5rem;font-weight:700;color:#10b981\\">EUR"+_D.price+"</span><span style=\\"color:#737373;text-decoration:line-through\\">EUR"+_D.oldPrice+"</span><span style=\\"color:#10b981;font-weight:600\\">-"+sc+"%</span></div><button id=\\"gdl\\" style=\\"width:100%;background:#6366f1;color:#fff;border:none;padding:1rem;border-radius:12px;font-weight:700;font-size:1.1rem;cursor:pointer\\">Zum Deal auf Amazon</button></div></div></div>";' +
-'if(document.getElementById("cpn")){document.getElementById("cpn").onclick=function(e){e.stopPropagation();navigator.clipboard.writeText(this.dataset.c)}}' +
-'document.getElementById("gdl").onclick=function(){var b=this;b.disabled=true;b.textContent="Weiterleiten...";fetch("/api/deal/"+_D.slug,{headers:{"Content-Type":"application/json","X-Verify-Token":tk,"X-Browser-Fingerprint":fp}}).then(function(r){return r.json()}).then(function(d){if(d.amazonUrl){window.location.href=d.amazonUrl}else{b.disabled=false;b.textContent="Zum Deal auf Amazon"}}).catch(function(){b.disabled=false;b.textContent="Zum Deal auf Amazon"})};' +
-'go();');
+  res.setHeader('Cache-Control', 'public, max-age=3600');
+  res.send([
+    'var _D=JSON.parse(document.getElementById("deal-data").textContent);',
+    'function _E(s){var d=document.createElement("div");d.textContent=s;return d.innerHTML}',
+    'function _FP(){var cv="",w="",v="";try{var c=document.createElement("canvas");c.width=200;c.height=50;var x=c.getContext("2d");x.textBaseline="top";x.font="14px Arial";x.fillStyle="#f60";x.fillRect(125,1,62,20);x.fillStyle="#069";x.fillText("vrf",2,15);cv=c.toDataURL().substring(0,100)}catch(e){}try{var g=document.createElement("canvas").getContext("webgl");if(g){w=g.getParameter(g.RENDERER)||"";v=g.getParameter(g.VENDOR)||""}}catch(e){}return cv+"|"+w+"|"+v+"|"+(navigator.hardwareConcurrency||0)+"|"+(navigator.platform||"")}',
+    'function _H(){if(navigator.webdriver)return true;if(!navigator.languages||!navigator.languages.length)return true;if(/HeadlessChrome|PhantomJS|Selenium/i.test(navigator.userAgent))return true;return false}',
+    'async function go(){',
+    'if(_H()){document.body.innerHTML="<p style=\\"text-align:center;padding:2rem\\">Not supported</p>";return}',
+    'var fp=_FP();var st=null;try{st=JSON.parse(sessionStorage.getItem("_v")||"{}")}catch(e){st={}}var tk=null;if(st.token&&st.exp>Date.now()&&st.fp===fp){tk=st.token}',
+    'if(!tk){try{var r=await fetch("/api/verify/simple",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({fingerprint:fp})});var rs=await r.json();if(rs&&rs.success&&rs.token){tk=rs.token;sessionStorage.setItem("_v",JSON.stringify({token:tk,exp:rs.expires,fp:fp}))}}catch(e){}}',
+    'if(!tk){document.body.innerHTML="<p style=\\"text-align:center;padding:2rem;color:#ef4444\\">Verification failed. <a href=\\"/\\">Home</a></p>";return}',
+    'document.title=_D.title+" - Rabatte&Deal&DE";var sc=Math.round(((_D.oldPrice-_D.price)/_D.oldPrice)*100);',
+    'var cp=_D.coupon?"<div onclick=\\"navigator.clipboard.writeText(this.dataset.c)\\" data-c=\\""+_E(_D.coupon)+"\\" style=\\"background:#f59e0b;color:#fff;padding:.75rem;border-radius:8px;margin-bottom:1rem;text-align:center;cursor:pointer\\">Coupon: "+_E(_D.coupon)+"</div>":"";',
+    'var h="<div style=\\"max-width:600px;margin:2rem auto;padding:1.5rem\\">";',
+    'h+="<h1 style=\\"text-align:center;font-size:1.5rem;color:#6366f1;margin-bottom:1.5rem\\">Rabatte&Deal&DE</h1>";',
+    'h+="<div style=\\"background:#1f1f1f;border-radius:16px;overflow:hidden\\">";',
+    'h+="<div style=\\"position:relative;height:300px\\"><img src=\\""+_E(_D.imageUrl)+"\\" style=\\"width:100%;height:100%;object-fit:contain;background:#111\\" onerror=\\"this.src=\\x27https://via.placeholder.com/400?text=Image\\x27\\">";',
+    'h+="<div style=\\"position:absolute;top:.75rem;left:.75rem;background:#6366f1;color:#fff;padding:.25rem .75rem;border-radius:20px;font-size:.75rem\\">"+_E(_D.category)+"</div>";',
+    'h+="<div style=\\"position:absolute;bottom:.75rem;left:.75rem;background:#10b981;color:#fff;padding:.25rem .5rem;border-radius:8px;font-weight:700\\">-"+sc+"%</div></div>";',
+    'h+="<div style=\\"padding:1.5rem\\">";',
+    'h+="<h2 style=\\"font-size:1.2rem;font-weight:600;margin-bottom:.5rem\\">"+_E(_D.title)+"</h2>";',
+    'h+="<p style=\\"color:#a3a3a3;margin-bottom:1rem\\">"+_E(_D.description)+"</p>";',
+    'h+=cp;',
+    'h+="<div style=\\"display:flex;gap:.75rem;align-items:center;margin-bottom:1rem\\">";',
+    'h+="<span style=\\"font-size:1.5rem;font-weight:700;color:#10b981\\">EUR "+_D.price+"</span>";',
+    'h+="<span style=\\"color:#737373;text-decoration:line-through\\">EUR "+_D.oldPrice+"</span>";',
+    'h+="<span style=\\"color:#10b981;font-weight:600\\">-"+sc+"%</span></div>";',
+    'h+="<button id=\\"gdl\\" style=\\"width:100%;background:#6366f1;color:#fff;border:none;padding:1rem;border-radius:12px;font-weight:700;font-size:1.1rem;cursor:pointer\\">Zum Deal auf Amazon</button>";',
+    'h+="</div></div></div>";',
+    'document.body.innerHTML=h;',
+    'document.getElementById("gdl").onclick=function(){var b=this;b.disabled=true;b.textContent="Weiterleiten...";',
+    'fetch("/api/deal/"+_D.slug,{headers:{"Content-Type":"application/json","X-Verify-Token":tk,"X-Browser-Fingerprint":fp}})',
+    '.then(function(r){return r.json()})',
+    '.then(function(d){if(d.amazonUrl)window.location.href=d.amazonUrl;else{b.disabled=false;b.textContent="Zum Deal"}})',
+    '.catch(function(){b.disabled=false;b.textContent="Zum Deal auf Amazon"})}',
+    '}',
+    'go();'
+  ].join('\n'));
 });
+
 app.get('/api/deal/:slug', apiLimiter, async (req, res) => {
   try {
     // Require verification token
