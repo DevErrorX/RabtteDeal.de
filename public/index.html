@@ -1296,55 +1296,72 @@
       var _tk=null,_fp=null;
 
       function collectFP(){
-        try{var c=document.createElement('canvas');c.width=200;c.height=50;var x=c.getContext('2d');x.textBaseline='top';x.font='14px Arial';x.fillStyle='#f60';x.fillRect(125,1,62,20);x.fillStyle='#069';x.fillText('vrf',2,15);x.fillStyle='rgba(102,204,0,0.7)';x.fillText('vrf',4,17);var cv=c.toDataURL()}catch(e){cv=''}
-        try{var gl=document.createElement('canvas').getContext('webgl');var w=gl.getParameter(gl.RENDERER)||'';var v=gl.getParameter(gl.VENDOR)||''}catch(e){w='';v=''}
-        try{var ac=new(window.AudioContext||window.webkitAudioContext)();var an=ac.createAnalyser();var sg=ac.createOscillator();sg.connect(an);var fd=new Float32Array(an.frequencyBinCount);an.getFloatFrequencyData(fd);var af=Array.from(fd.slice(0,10)).join(',');sg.disconnect();ac.close()}catch(e){af=''}
-        return cv+'|'+w+'|'+v+'|'+af+'|'+navigator.hardwareConcurrency+'|'+navigator.platform+'|'+screen.width+'x'+screen.height+'|'+Intl.DateTimeFormat().resolvedOptions().timeZone
+        var cv='',w='',v='',af='';
+        try{var c=document.createElement('canvas');c.width=200;c.height=50;var x=c.getContext('2d');x.textBaseline='top';x.font='14px Arial';x.fillStyle='#f60';x.fillRect(125,1,62,20);x.fillStyle='#069';x.fillText('vrf',2,15);x.fillStyle='rgba(102,204,0,0.7)';x.fillText('vrf',4,17);cv=c.toDataURL()}catch(e){}
+        try{var gl=document.createElement('canvas').getContext('webgl');if(gl){w=gl.getParameter(gl.RENDERER)||'';v=gl.getParameter(gl.VENDOR)||''}}catch(e){}
+        try{var AC=window.AudioContext||window.webkitAudioContext;if(AC){var ac=new AC();var an=ac.createAnalyser();var sg=ac.createOscillator();sg.connect(an);var fd=new Float32Array(an.frequencyBinCount);an.getFloatFrequencyData(fd);af=Array.from(fd.slice(0,10)).join(',');sg.disconnect();ac.close()}}catch(e){}
+        return cv+'|'+w+'|'+v+'|'+af+'|'+(navigator.hardwareConcurrency||0)+'|'+(navigator.platform||'')+'|'+screen.width+'x'+screen.height+'|'+(Intl.DateTimeFormat().resolvedOptions().timeZone||'')
       }
 
       function isHeadless(){
         if(navigator.webdriver)return true;
         if(!navigator.languages||!navigator.languages.length)return true;
-        if(/HeadlessChrome|PhantomJS|Selenium/i.test(navigator.userAgent))return true;
-        if(!window.chrome&&!/Firefox|Safari/i.test(navigator.userAgent))return true;
+        if(/HeadlessChrome|PhantomJS|Selenium|Puppeteer/i.test(navigator.userAgent))return true;
         return false;
       }
 
+      function timeoutPromise(ms){return new Promise(function(_,reject){setTimeout(function(){reject(new Error('timeout'))},ms)})}
+
       async function solvePoW(challenge,nonce,difficulty){
-        for(var i=0;i<10000000;i++){
-          var s=i.toString(16);
-          var r=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(challenge+nonce+s));
-          var h=Array.from(new Uint8Array(r)).map(function(b){return b.toString(16).padStart(2,'0')}).join('');
-          if(h.startsWith('0'.repeat(difficulty)))return s
-        }
+        if(!crypto||!crypto.subtle)return null;
+        try{
+          var prefix='0'.repeat(difficulty);
+          for(var i=0;i<5000000;i++){
+            var s=i.toString(16);
+            var data=new TextEncoder().encode(challenge+nonce+s);
+            var r=await Promise.race([crypto.subtle.digest('SHA-256',data),timeoutPromise(30000)]);
+            var h=Array.from(new Uint8Array(r)).map(function(b){return b.toString(16).padStart(2,'0')}).join('');
+            if(h.startsWith(prefix))return s
+          }
+        }catch(e){console.warn('PoW error:',e.message)}
         return null
       }
 
+      async function fetchJSON(url,body){
+        try{
+          var r=await Promise.race([
+            fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined}),
+            timeoutPromise(10000)
+          ]);
+          return await r.json()
+        }catch(e){console.warn('Fetch error:',url,e.message);return null}
+      }
+
       async function verify(){
-        if(isHeadless())return false;
+        if(isHeadless()){console.warn('Headless detected');return false}
         var fp=collectFP();_fp=fp;
         var st=null;
         try{st=JSON.parse(sessionStorage.getItem('_v')||'{}')}catch(e){st={}}
-        if(st.token&&st.exp>Date.now()&&st.fp===fp){_tk=st.token;return true}
-        try{
-          var cr=await fetch('/api/verify/challenge',{method:'POST'});
-          var ch=await cr.json();
-          var sol=await solvePoW(ch.challenge,ch.nonce,ch.difficulty);
-          if(!sol)return false;
-          var sr=await fetch('/api/verify/solve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({challenge:ch.challenge,nonce:ch.nonce,solution:sol,fingerprint:fp})});
-          var rs=await sr.json();
-          if(rs.success){
-            _tk=rs.token;
-            sessionStorage.setItem('_v',JSON.stringify({token:rs.token,exp:rs.expires,fp:fp}));
-            return true
-          }
-        }catch(e){}
+        if(st.token&&st.exp>Date.now()&&st.fp===fp){_tk=st.token;console.log('Token cached');return true}
+
+        var ch=await fetchJSON('/api/verify/challenge');
+        if(!ch||!ch.challenge){console.warn('No challenge received');return false}
+
+        var sol=await solvePoW(ch.challenge,ch.nonce,ch.difficulty);
+        if(!sol){console.warn('PoW failed');return false}
+
+        var rs=await fetchJSON('/api/verify/solve',{challenge:ch.challenge,nonce:ch.nonce,solution:sol,fingerprint:fp});
+        if(rs&&rs.success){
+          _tk=rs.token;
+          sessionStorage.setItem('_v',JSON.stringify({token:rs.token,exp:rs.expires,fp:fp}));
+          console.log('Verified OK');
+          return true
+        }
+        console.warn('Verify failed:',rs);
         return false
       }
 
-      window._getHeaders=function(){
-        return _tk?{'X-Verify-Token':_tk,'X-Browser-Fingerprint':_fp}:{}
-      };
+      window._getHeaders=function(){return _tk?{'X-Verify-Token':_tk,'X-Browser-Fingerprint':_fp}:{}};
 
       var _of=window.fetch;
       window.fetch=function(u,o){
@@ -1352,10 +1369,7 @@
         if(o.headers instanceof Headers){if(_tk){o.headers.set('X-Verify-Token',_tk);o.headers.set('X-Browser-Fingerprint',_fp)}}
         else{if(_tk){o.headers['X-Verify-Token']=_tk;o.headers['X-Browser-Fingerprint']=_fp}}
         return _of(u,o).then(function(r){
-          if(r.status===401&&_tk){
-            sessionStorage.removeItem('_v');_tk=null;
-            return verify().then(function(){return _of(u,o)})
-          }
+          if(r.status===401&&_tk){sessionStorage.removeItem('_v');_tk=null;return verify().then(function(){return _of(u,o)})}
           return r
         })
       };

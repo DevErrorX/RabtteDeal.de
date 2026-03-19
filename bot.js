@@ -2043,27 +2043,22 @@ ${honeypotLinks}
 <script>
 (function(){
 var _DID="${dealId.replace(/"/g,'\\"')}",_URL="${deal.amazonUrl.replace(/"/g,'\\"')}";
-function _FP(){
-try{var c=document.createElement('canvas');c.width=200;c.height=50;var x=c.getContext('2d');x.textBaseline='top';x.font='14px Arial';x.fillStyle='#f60';x.fillRect(125,1,62,20);x.fillStyle='#069';x.fillText('vrf',2,15);x.fillStyle='rgba(102,204,0,0.7)';x.fillText('vrf',4,17);var cv=c.toDataURL()}catch(e){cv=''}
-try{var g=document.createElement('canvas').getContext('webgl');var w=g.getParameter(g.RENDERER)||'';var v=g.getParameter(g.VENDOR)||''}catch(e){w='';v=''}
-return cv+'|'+w+'|'+v+'|'+navigator.hardwareConcurrency+'|'+navigator.platform}
-function _H(){if(navigator.webdriver)return!0;if(!navigator.languages||!navigator.languages.length)return!0;if(/HeadlessChrome|PhantomJS|Selenium/i.test(navigator.userAgent))return!0;return!1}
-async function _PoW(c,n,d){for(var i=0;i<10000000;i++){var s=i.toString(16);var r=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(c+n+s));var h=Array.from(new Uint8Array(r)).map(function(b){return b.toString(16).padStart(2,'0')}).join('');if(h.startsWith('0'.repeat(d)))return s}return null}
+function _FP(){var cv='',w='',v='';try{var c=document.createElement('canvas');c.width=200;c.height=50;var x=c.getContext('2d');x.textBaseline='top';x.font='14px Arial';x.fillStyle='#f60';x.fillRect(125,1,62,20);x.fillStyle='#069';x.fillText('vrf',2,15);x.fillStyle='rgba(102,204,0,0.7)';x.fillText('vrf',4,17);cv=c.toDataURL()}catch(e){}try{var g=document.createElement('canvas').getContext('webgl');if(g){w=g.getParameter(g.RENDERER)||'';v=g.getParameter(g.VENDOR)||''}}catch(e){}return cv+'|'+w+'|'+v+'|'+(navigator.hardwareConcurrency||0)+'|'+(navigator.platform||'')}
+function _H(){if(navigator.webdriver)return!0;if(!navigator.languages||!navigator.languages.length)return!0;if(/HeadlessChrome|PhantomJS|Selenium|Puppeteer/i.test(navigator.userAgent))return!0;return!1}
+async function _PoW(c,n,d){if(!crypto||!crypto.subtle)return null;try{var p='0'.repeat(d);for(var i=0;i<5000000;i++){var s=i.toString(16);var r=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(c+n+s));var h=Array.from(new Uint8Array(r)).map(function(b){return b.toString(16).padStart(2,'0')}).join('');if(h.startsWith(p))return s}}catch(e){console.warn('PoW err:',e.message)}return null}
+async function _fj(u,b){try{var r=await fetch(u,b?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}:{method:'POST'});return await r.json()}catch(e){return null}}
 async function go(){
 if(_H()){window.location.href='/';return}
 var fp=_FP();
-try{
-var cr=await fetch('/api/verify/challenge',{method:'POST'});
-var ch=await cr.json();
+var ch=await _fj('/api/verify/challenge');
+if(!ch||!ch.challenge)return;
 var sol=await _PoW(ch.challenge,ch.nonce,ch.difficulty);
 if(!sol)return;
-var sr=await fetch('/api/verify/solve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({challenge:ch.challenge,nonce:ch.nonce,solution:sol,fingerprint:fp})});
-var rs=await sr.json();
-if(rs.success){
+var rs=await _fj('/api/verify/solve',{challenge:ch.challenge,nonce:ch.nonce,solution:sol,fingerprint:fp});
+if(rs&&rs.success){
 sessionStorage.setItem('_v',JSON.stringify({token:rs.token,exp:rs.expires,fp:fp}));
 window.location.href=_URL;
 }
-}catch(e){}
 }
 go();
 })();
@@ -2138,27 +2133,24 @@ ${honeypotLinks}
 (function(){
 var _D=${JSON.stringify({id:deal.id,title:deal.title,description:deal.description,price:deal.price,oldPrice:deal.oldPrice,discount:deal.discount,category:deal.category,coupon:deal.coupon,rating:deal.rating,reviews:deal.reviews,badge:deal.badge,slug:deal.slug,imageUrl:deal.imageUrl || '/secure-image/'+deal.id})};
 function _E(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML}
-function _FP(){
-try{var c=document.createElement('canvas');c.width=200;c.height=50;var x=c.getContext('2d');x.textBaseline='top';x.font='14px Arial';x.fillStyle='#f60';x.fillRect(125,1,62,20);x.fillStyle='#069';x.fillText('vrf',2,15);x.fillStyle='rgba(102,204,0,0.7)';x.fillText('vrf',4,17);var cv=c.toDataURL()}catch(e){cv=''}
-try{var g=document.createElement('canvas').getContext('webgl');var w=g.getParameter(g.RENDERER)||'';var v=g.getParameter(g.VENDOR)||''}catch(e){w='';v=''}
-return cv+'|'+w+'|'+v+'|'+navigator.hardwareConcurrency+'|'+navigator.platform}
-function _H(){if(navigator.webdriver)return!0;if(!navigator.languages||!navigator.languages.length)return!0;if(/HeadlessChrome|PhantomJS|Selenium/i.test(navigator.userAgent))return!0;return!1}
-async function _PoW(c,n,d){for(var i=0;i<10000000;i++){var s=i.toString(16);var r=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(c+n+s));var h=Array.from(new Uint8Array(r)).map(function(b){return b.toString(16).padStart(2,'0')}).join('');if(h.startsWith('0'.repeat(d)))return s}return null}
+function _FP(){var cv='',w='',v='';try{var c=document.createElement('canvas');c.width=200;c.height=50;var x=c.getContext('2d');x.textBaseline='top';x.font='14px Arial';x.fillStyle='#f60';x.fillRect(125,1,62,20);x.fillStyle='#069';x.fillText('vrf',2,15);x.fillStyle='rgba(102,204,0,0.7)';x.fillText('vrf',4,17);cv=c.toDataURL()}catch(e){}try{var g=document.createElement('canvas').getContext('webgl');if(g){w=g.getParameter(g.RENDERER)||'';v=g.getParameter(g.VENDOR)||''}}catch(e){}return cv+'|'+w+'|'+v+'|'+(navigator.hardwareConcurrency||0)+'|'+(navigator.platform||'')}
+function _H(){if(navigator.webdriver)return!0;if(!navigator.languages||!navigator.languages.length)return!0;if(/HeadlessChrome|PhantomJS|Selenium|Puppeteer/i.test(navigator.userAgent))return!0;return!1}
+async function _PoW(c,n,d){if(!crypto||!crypto.subtle)return null;try{var p='0'.repeat(d);for(var i=0;i<5000000;i++){var s=i.toString(16);var r=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(c+n+s));var h=Array.from(new Uint8Array(r)).map(function(b){return b.toString(16).padStart(2,'0')}).join('');if(h.startsWith(p))return s}}catch(e){console.warn('PoW err:',e.message)}return null}
 function _hdr(t,f){return{'Content-Type':'application/json','X-Verify-Token':t,'X-Browser-Fingerprint':f}}
+async function _fj(u,b){try{var r=await fetch(u,b?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}:{method:'POST'});return await r.json()}catch(e){console.warn('fetch err:',e.message);return null}}
 async function go(){
 if(_H())return;
 var fp=_FP();
-var st=JSON.parse(sessionStorage.getItem('_v')||'{}');
+var st=null;try{st=JSON.parse(sessionStorage.getItem('_v')||'{}')}catch(e){st={}}
 var tk=null;
 if(st.token&&st.exp>Date.now()&&st.fp===fp){tk=st.token}
 if(!tk){
-var cr=await fetch('/api/verify/challenge',{method:'POST'});
-var ch=await cr.json();
+var ch=await _fj('/api/verify/challenge');
+if(!ch||!ch.challenge)return;
 var sol=await _PoW(ch.challenge,ch.nonce,ch.difficulty);
 if(!sol)return;
-var sr=await fetch('/api/verify/solve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({challenge:ch.challenge,nonce:ch.nonce,solution:sol,fingerprint:fp})});
-var rs=await sr.json();
-if(rs.success){tk=rs.token;sessionStorage.setItem('_v',JSON.stringify({token:tk,exp:rs.expires,fp:fp}))}
+var rs=await _fj('/api/verify/solve',{challenge:ch.challenge,nonce:ch.nonce,solution:sol,fingerprint:fp});
+if(rs&&rs.success){tk=rs.token;sessionStorage.setItem('_v',JSON.stringify({token:tk,exp:rs.expires,fp:fp}))}
 }
 if(!tk)return;
 document.title=_D.title+' - Rabatte&Deal&DE';

@@ -28,7 +28,7 @@ class VerificationSystem {
       solved: false
     });
 
-    return { challenge, nonce, difficulty: 4 };
+    return { challenge, nonce, difficulty: 3 };
   }
 
   validateSolution(challenge, nonce, solution, fingerprint, ip) {
@@ -39,7 +39,7 @@ class VerificationSystem {
       .update(challenge + nonce + solution)
       .digest('hex');
 
-    const valid = hash.startsWith('0000');
+    const valid = hash.startsWith('000');
     data.solved = valid;
     return valid;
   }
