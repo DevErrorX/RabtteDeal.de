@@ -2247,7 +2247,7 @@ app.use((req, res, next) => {
     '/uploads'
   ];
   
-  const blockedExtensions = ['.json', '.js', '.env', '.log', '.config'];
+  const blockedExtensions = ['.env', '.log', '.config'];
   const requestPath = req.path.toLowerCase();
   
   if (blockedFiles.some(file => requestPath === file || requestPath.startsWith(file))) {

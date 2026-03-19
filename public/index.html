@@ -1504,11 +1504,12 @@
             updateWishlistCount();
             setupEventListeners();
 
+            // Try verification but don't block deal loading
             if (window._verifyReady) {
-                var verified = await window._verifyReady;
-                if (!verified) {
-                    document.getElementById('dealsGrid').innerHTML = '<p style="text-align:center;color:var(--danger);grid-column:1/-1;padding:2rem">Sicherheitsüberprüfung fehlgeschlagen. Bitte Seite neu laden.</p>';
-                    return;
+                try {
+                    await window._verifyReady;
+                } catch(e) {
+                    console.warn('Verification error:', e.message);
                 }
             }
 
