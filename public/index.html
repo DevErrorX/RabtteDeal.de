@@ -1296,11 +1296,10 @@
       var _tk=null,_fp=null;
 
       function collectFP(){
-        var cv='',w='',v='',af='';
-        try{var c=document.createElement('canvas');c.width=200;c.height=50;var x=c.getContext('2d');x.textBaseline='top';x.font='14px Arial';x.fillStyle='#f60';x.fillRect(125,1,62,20);x.fillStyle='#069';x.fillText('vrf',2,15);x.fillStyle='rgba(102,204,0,0.7)';x.fillText('vrf',4,17);cv=c.toDataURL()}catch(e){}
+        var cv='',w='',v='';
+        try{var c=document.createElement('canvas');c.width=200;c.height=50;var x=c.getContext('2d');x.textBaseline='top';x.font='14px Arial';x.fillStyle='#f60';x.fillRect(125,1,62,20);x.fillStyle='#069';x.fillText('vrf',2,15);x.fillStyle='rgba(102,204,0,0.7)';x.fillText('vrf',4,17);cv=c.toDataURL().substring(0,100)}catch(e){}
         try{var gl=document.createElement('canvas').getContext('webgl');if(gl){w=gl.getParameter(gl.RENDERER)||'';v=gl.getParameter(gl.VENDOR)||''}}catch(e){}
-        try{var AC=window.AudioContext||window.webkitAudioContext;if(AC){var ac=new AC();var an=ac.createAnalyser();var sg=ac.createOscillator();sg.connect(an);var fd=new Float32Array(an.frequencyBinCount);an.getFloatFrequencyData(fd);af=Array.from(fd.slice(0,10)).join(',');sg.disconnect();ac.close()}}catch(e){}
-        return cv+'|'+w+'|'+v+'|'+af+'|'+(navigator.hardwareConcurrency||0)+'|'+(navigator.platform||'')+'|'+screen.width+'x'+screen.height+'|'+(Intl.DateTimeFormat().resolvedOptions().timeZone||'')
+        return cv+'|'+w+'|'+v+'|'+(navigator.hardwareConcurrency||0)+'|'+(navigator.platform||'')+'|'+screen.width+'x'+screen.height
       }
 
       function isHeadless(){
@@ -1310,56 +1309,21 @@
         return false;
       }
 
-      function timeoutPromise(ms){return new Promise(function(_,reject){setTimeout(function(){reject(new Error('timeout'))},ms)})}
-
-      async function solvePoW(challenge,nonce,difficulty){
-        if(!crypto||!crypto.subtle)return null;
-        try{
-          var prefix='0'.repeat(difficulty);
-          for(var i=0;i<5000000;i++){
-            var s=i.toString(16);
-            var data=new TextEncoder().encode(challenge+nonce+s);
-            var r=await Promise.race([crypto.subtle.digest('SHA-256',data),timeoutPromise(30000)]);
-            var h=Array.from(new Uint8Array(r)).map(function(b){return b.toString(16).padStart(2,'0')}).join('');
-            if(h.startsWith(prefix))return s
-          }
-        }catch(e){console.warn('PoW error:',e.message)}
-        return null
-      }
-
-      async function fetchJSON(url,body){
-        try{
-          var r=await Promise.race([
-            fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined}),
-            timeoutPromise(10000)
-          ]);
-          var txt=await r.text();
-          if(txt.charAt(0)==='<'||txt.indexOf('challenge')>-1){console.warn('Got HTML instead of JSON from',url);return null}
-          return JSON.parse(txt)
-        }catch(e){console.warn('Fetch error:',url,e.message);return null}
-      }
-
       async function verify(){
-        if(isHeadless()){console.warn('Headless detected');return false}
+        if(isHeadless())return false;
         var fp=collectFP();_fp=fp;
         var st=null;
         try{st=JSON.parse(sessionStorage.getItem('_v')||'{}')}catch(e){st={}}
-        if(st.token&&st.exp>Date.now()&&st.fp===fp){_tk=st.token;console.log('Token cached');return true}
-
-        var ch=await fetchJSON('/api/verify/challenge');
-        if(!ch||!ch.challenge){console.warn('No challenge received');return false}
-
-        var sol=await solvePoW(ch.challenge,ch.nonce,ch.difficulty);
-        if(!sol){console.warn('PoW failed');return false}
-
-        var rs=await fetchJSON('/api/verify/solve',{challenge:ch.challenge,nonce:ch.nonce,solution:sol,fingerprint:fp});
-        if(rs&&rs.success){
-          _tk=rs.token;
-          sessionStorage.setItem('_v',JSON.stringify({token:rs.token,exp:rs.expires,fp:fp}));
-          console.log('Verified OK');
-          return true
-        }
-        console.warn('Verify failed:',rs);
+        if(st.token&&st.exp>Date.now()&&st.fp===fp){_tk=st.token;return true}
+        try{
+          var r=await fetch('/api/verify/simple',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({fingerprint:fp})});
+          var rs=await r.json();
+          if(rs&&rs.success&&rs.token){
+            _tk=rs.token;
+            sessionStorage.setItem('_v',JSON.stringify({token:rs.token,exp:rs.expires,fp:fp}));
+            return true
+          }
+        }catch(e){console.warn('Verify error:',e.message)}
         return false
       }
 
