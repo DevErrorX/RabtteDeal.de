@@ -168,16 +168,6 @@ class VerificationSystem {
     this.fpRequests.set(fingerprint, recent);
     return true;
   }
-    }
-
-    // Minimum 1 second between requests
-    const lastReq = recent[recent.length - 1] || 0;
-    if (now - lastReq < 1000) return false;
-
-    recent.push(now);
-    this.fpRequests.set(fingerprint, recent);
-    return true;
-  }
 
   // ==================== BOT DETECTION ====================
 
