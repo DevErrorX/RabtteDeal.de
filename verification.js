@@ -155,16 +155,19 @@ class VerificationSystem {
     const recent = log.filter(t => now - t < windowMs);
 
     // Block if too many requests
-    if (recent.length >= max) return false;
+    if (recent.length >= max) {
+      console.warn(`🚫 Rate limit exceeded for FP: ${fingerprint.substring(0, 20)}...`);
+      return false;
+    }
 
-    // Behavioral detection: if last 3 requests were within 10 seconds, block
-    if (recent.length >= 3) {
-      const last3 = recent.slice(-3);
-      if (last3[2] - last3[0] < 10000) {
-        console.warn(`🚫 Aggressive scraping detected from FP: ${fingerprint.substring(0, 20)}...`);
-        this.blockedFingerprints.add(fingerprint);
-        return false;
-      }
+    // Minimum 1 second between requests
+    const lastReq = recent[recent.length - 1] || 0;
+    if (now - lastReq < 1000) return false;
+
+    recent.push(now);
+    this.fpRequests.set(fingerprint, recent);
+    return true;
+  }
     }
 
     // Minimum 1 second between requests
