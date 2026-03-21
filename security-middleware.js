@@ -463,18 +463,20 @@ class AdvancedSecurityManager {
 
   isCloudflareIP(ip) {
     if (!ip) return false;
-    return ip.startsWith('172.69.') || ip.startsWith('162.158.') ||
-           ip.startsWith('104.16.') || ip.startsWith('104.17.') ||
-           ip.startsWith('104.18.') || ip.startsWith('104.19.') ||
-           ip.startsWith('104.20.') || ip.startsWith('104.21.') ||
-           ip.startsWith('104.22.') || ip.startsWith('104.23.') ||
-           ip.startsWith('104.24.') || ip.startsWith('104.25.') ||
-           ip.startsWith('104.26.') || ip.startsWith('104.27.') ||
-           ip.startsWith('104.28.') || ip.startsWith('104.29.') ||
-           ip.startsWith('104.30.') || ip.startsWith('104.31.') ||
-           ip.startsWith('141.101.') || ip.startsWith('188.114.') ||
-           ip.startsWith('190.93.') || ip.startsWith('197.234.') ||
-           ip.startsWith('198.41.');
+    const parts = ip.split('.');
+    if (parts.length !== 4) return false;
+    const a = parseInt(parts[0]), b = parseInt(parts[1]);
+    // Cloudflare IP ranges
+    if (a === 172 && b >= 64 && b <= 127) return true;  // 172.64.0.0/10
+    if (a === 162 && b === 158) return true;              // 162.158.0.0/15
+    if (a === 104 && b >= 16 && b <= 31) return true;    // 104.16.0.0/12
+    if (a === 141 && b === 101) return true;              // 141.101.0.0/16
+    if (a === 188 && b === 114) return true;              // 188.114.0.0/16
+    if (a === 190 && b === 93) return true;               // 190.93.0.0/16
+    if (a === 197 && b === 234) return true;              // 197.234.0.0/16
+    if (a === 198 && b === 41) return true;               // 198.41.0.0/16
+    if (a === 131 && b === 0) return true;                // 131.0.0.0/24
+    return false;
   }
 
   isBlocked(identifier) {
