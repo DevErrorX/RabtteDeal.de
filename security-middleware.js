@@ -455,9 +455,26 @@ class AdvancedSecurityManager {
   }
 
   blockIdentifier(identifier, duration = 300000) {
+    if (this.isCloudflareIP(identifier)) return;
     this.blockedIPs.add(identifier);
     setTimeout(() => this.blockedIPs.delete(identifier), duration);
     console.warn(`🚫 Blocked identifier: ${identifier} for ${duration}ms`);
+  }
+
+  isCloudflareIP(ip) {
+    if (!ip) return false;
+    return ip.startsWith('172.69.') || ip.startsWith('162.158.') ||
+           ip.startsWith('104.16.') || ip.startsWith('104.17.') ||
+           ip.startsWith('104.18.') || ip.startsWith('104.19.') ||
+           ip.startsWith('104.20.') || ip.startsWith('104.21.') ||
+           ip.startsWith('104.22.') || ip.startsWith('104.23.') ||
+           ip.startsWith('104.24.') || ip.startsWith('104.25.') ||
+           ip.startsWith('104.26.') || ip.startsWith('104.27.') ||
+           ip.startsWith('104.28.') || ip.startsWith('104.29.') ||
+           ip.startsWith('104.30.') || ip.startsWith('104.31.') ||
+           ip.startsWith('141.101.') || ip.startsWith('188.114.') ||
+           ip.startsWith('190.93.') || ip.startsWith('197.234.') ||
+           ip.startsWith('198.41.');
   }
 
   isBlocked(identifier) {
@@ -465,6 +482,7 @@ class AdvancedSecurityManager {
   }
 
   logSuspiciousActivity(identifier, activity) {
+    if (this.isCloudflareIP(identifier)) return;
     const key = `${identifier}-${activity}`;
     const count = this.suspiciousActivity.get(key) || 0;
     this.suspiciousActivity.set(key, count + 1);
@@ -528,6 +546,11 @@ class AdvancedSecurityManager {
     stored.requestCount++;
     
     if (stored.fingerprint !== fingerprint) {
+      // Skip fingerprint change detection for Cloudflare IPs (many users share same edge IP)
+      if (this.isCloudflareIP(ip)) {
+        stored.fingerprint = fingerprint;
+        return true;
+      }
       // Only log as suspicious if there are multiple rapid changes
       const now = Date.now();
       const timeSinceFirstSeen = now - stored.firstSeen;
