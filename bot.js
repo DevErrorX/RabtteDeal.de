@@ -664,7 +664,7 @@ async function loadDeals() {
       title: InputValidator.sanitizeText(deal.title, 100),
       description: InputValidator.sanitizeText(deal.description, 500),
       category: InputValidator.sanitizeText(deal.category, 50).toLowerCase(),
-      slug: deal.slug || generateSlug(deal.title)
+      slug: deal.slug || generateUniqueSlug(deal.title)
     }));
     
     console.log(`✅ Successfully loaded ${deals.length} valid deals from Firebase`);
@@ -787,6 +787,19 @@ function generateSlug(title) {
   const firstTwoWords = words.slice(0, 2).join('-');
   
   return firstTwoWords.substring(0, 30);
+}
+
+function generateUniqueSlug(title) {
+  let baseSlug = generateSlug(title);
+  let slug = baseSlug;
+  let counter = 2;
+  
+  while (deals.some(d => d.slug === slug)) {
+    slug = baseSlug + '-' + counter;
+    counter++;
+  }
+  
+  return slug;
 }
 
 
@@ -1319,7 +1332,7 @@ async function completeDealAdd(chatId, userId, data) {
       throw new Error(`Validation failed: ${validationErrors.join(', ')}`);
     }
     const dealId = generateDealId();
-    const slug = generateSlug(data.name);
+    const slug = generateUniqueSlug(data.name);
     
     const discount = Math.round(
       ((data.originalPrice - data.dealPrice) / data.originalPrice) * 100
@@ -1642,7 +1655,7 @@ if (!deal) {
          errorMessage = "Name must be 5-100 characters long";
        } else {
          deal.title = updateValue;
-         deal.slug = generateSlug(updateValue);
+          deal.slug = generateUniqueSlug(updateValue);
        }
        break;}
        
@@ -1935,7 +1948,7 @@ app.get('/api/deals', apiLimiter, verify.rateLimit(100, 60000), async (req, res)
       .filter(deal => (deal.timer || 0) > now)
       .map(deal => ({
         id: deal.id,
-        slug: deal.slug || generateSlug(deal.title),
+        slug: deal.slug || generateUniqueSlug(deal.title),
         title: deal.title,
         description: deal.description,
         price: parseFloat(deal.price),
