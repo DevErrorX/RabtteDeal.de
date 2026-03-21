@@ -167,9 +167,9 @@ class VerificationSystem {
       }
     }
 
-    // Minimum 3 seconds between requests
+    // Minimum 1 second between requests
     const lastReq = recent[recent.length - 1] || 0;
-    if (now - lastReq < 3000) return false;
+    if (now - lastReq < 1000) return false;
 
     recent.push(now);
     this.fpRequests.set(fingerprint, recent);

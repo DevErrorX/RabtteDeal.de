@@ -442,11 +442,11 @@ app.use((req, res, next) => {
 
 const redirectLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 50, 
+  max: 50,
+  keyGenerator: (req) => req.headers['cf-connecting-ip'] || req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip,
   message: generateErrorPage("Rate Limit Exceeded", "Please wait before making more requests"),
   skip: (req) => security.isBlocked(req.ip),
   handler: (req, res) => {
-    security.logSuspiciousActivity(req.ip, 'redirect_rate_limit');
     res.status(429).send(generateErrorPage("Rate Limit Exceeded", "Please wait before making more requests"));
   }
 });
@@ -454,9 +454,9 @@ const redirectLimiter = rateLimit({
 const apiLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 60,
+  keyGenerator: (req) => req.headers['cf-connecting-ip'] || req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip,
   message: { error: 'Too many API requests' },
   handler: (req, res) => {
-    security.logSuspiciousActivity(req.ip, 'api_rate_limit');
     res.status(429).json({ error: 'Too many requests' });
   }
 });
