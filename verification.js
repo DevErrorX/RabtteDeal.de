@@ -35,13 +35,16 @@ class VerificationSystem {
 
   validateSolution(challenge, nonce, solution) {
     const data = this.challenges.get(challenge);
-    if (!data || Date.now() > data.expires || data.solved) return false;
+    if (!data) { console.log('❌ Challenge not found'); return false; }
+    if (Date.now() > data.expires) { console.log('❌ Challenge expired'); return false; }
+    if (data.solved) { console.log('❌ Challenge already solved'); return false; }
 
     const hash = crypto.createHash('sha256')
       .update(challenge + nonce + solution)
       .digest('hex');
 
-    const valid = hash.startsWith('00');
+    const valid = hash.startsWith('000');
+    if (!valid) console.log(`❌ PoW hash mismatch: ${hash.substring(0, 10)}... (need 000...)`);
     data.solved = valid;
     return valid;
   }
@@ -136,7 +139,7 @@ class VerificationSystem {
     if (!data) return false;
     if (Date.now() > data.expires) { this.otTokens.delete(token); return false; }
     if (data.fingerprint !== fingerprint) return false;
-    if (data.ip !== ip) return false;
+    // Don't check IP - Cloudflare changes edge IPs between requests
     this.otTokens.delete(token);
     return true;
   }

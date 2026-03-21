@@ -394,6 +394,7 @@ let userSessions = new Map();
 let serverProcess = null;
 
 const app = express();
+app.set('trust proxy', 1);
 
 app.use(helmet({
   contentSecurityPolicy: {
@@ -2104,7 +2105,9 @@ app.post('/deal-redirect/:slug', express.urlencoded({ extended: false }), async 
     // Validate PoW
     const challenge = req.body.c;
     const nonce = req.body.n;
+    console.log(`🔐 Verify: slug=${slug}, hasChallenge=${!!challenge}, hasNonce=${!!nonce}, hasSolution=${!!solution}, hasFP=${!!fingerprint}`);
     if (!challenge || !nonce || !verify.validateSolution(challenge, nonce, solution)) {
+      console.log(`❌ PoW failed for ${slug} from ${req.ip}`);
       return res.status(403).json({ ok: false, e: 'Verification failed' });
     }
 
