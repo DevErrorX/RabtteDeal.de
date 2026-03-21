@@ -30,7 +30,7 @@ class VerificationSystem {
       solved: false
     });
 
-    return { challenge, nonce, difficulty: 2 };
+    return { challenge, nonce, difficulty: 3 };
   }
 
   validateSolution(challenge, nonce, solution) {
@@ -147,8 +147,27 @@ class VerificationSystem {
     if (!fingerprint) return false;
     const now = Date.now();
     const log = this.fpRequests.get(fingerprint) || [];
+
+    // Clean old entries
     const recent = log.filter(t => now - t < windowMs);
+
+    // Block if too many requests
     if (recent.length >= max) return false;
+
+    // Behavioral detection: if last 3 requests were within 10 seconds, block
+    if (recent.length >= 3) {
+      const last3 = recent.slice(-3);
+      if (last3[2] - last3[0] < 10000) {
+        console.warn(`🚫 Aggressive scraping detected from FP: ${fingerprint.substring(0, 20)}...`);
+        this.blockedFingerprints.add(fingerprint);
+        return false;
+      }
+    }
+
+    // Minimum 3 seconds between requests
+    const lastReq = recent[recent.length - 1] || 0;
+    if (now - lastReq < 3000) return false;
+
     recent.push(now);
     this.fpRequests.set(fingerprint, recent);
     return true;
