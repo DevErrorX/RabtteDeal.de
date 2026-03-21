@@ -1971,49 +1971,24 @@ app.get('/api/deals', apiLimiter, verify.rateLimit(100, 60000), async (req, res)
 });
 
 
-app.get('/redirect/:dealId', redirectLimiter, async (req, res) => {
+app.get('/redirect/:dealId', async (req, res) => {
   try {
     const dealId = InputValidator.sanitizeText(req.params.dealId, 50);
-
     if (security.isHoneypot(`/redirect/${dealId}`) || dealId.includes('honey_')) {
-      console.warn(`🍯 Honeypot: ${dealId} from ${req.ip}`);
-      security.logSuspiciousActivity(req.ip, 'honeypot_access');
-      security.blockIdentifier(req.ip, 1800000);
-      return res.status(403).send(generateErrorPage("Access Denied", "Blocked."));
+      return res.status(403).send(generateErrorPage("Access Denied", "Blocked"));
     }
-
     if (!dealId || !/^[0-9a-f]{8,}$/i.test(dealId)) {
       return res.status(400).send(generateErrorPage("Invalid", "Invalid ID"));
     }
-
     const snapshot = await dealsRef.child(dealId).once("value");
     const deal = snapshot.val();
     if (!deal) return res.status(404).send(generateErrorPage("Not Found", "Deal not found"));
     if ((deal.timer || 0) <= Date.now()) return res.status(410).send(generateErrorPage("Expired", "Deal expired"));
-    if (!InputValidator.validateURL(deal.amazonUrl)) return res.status(400).send(generateErrorPage("Invalid", "Invalid URL"));
-
-    // If token+fp in query, validate and redirect
-    const token = req.query._vt;
-    const fp = req.query._fp;
-    if (token && fp && verify.consumeOTToken(token, fp, req.ip)) {
-      if (verify.checkFPLimit(fp, 30, 3600000)) {
-        try { await dealsRef.child(dealId).child('clicks').transaction(c => (c || 0) + 1); } catch (e) {}
-        console.log(`🔗 Redirect: ${dealId} from ${req.ip}`);
-        res.setHeader('Referrer-Policy', 'no-referrer');
-        return res.redirect(302, deal.amazonUrl);
-      }
-    }
-
-    // Serve auto-redirect page
     console.log(`📄 Redirect page: ${dealId} from ${req.ip}`);
     res.setHeader('X-Robots-Tag', 'noindex, nofollow');
     res.setHeader('Referrer-Policy', 'no-referrer');
-    res.setHeader('X-Frame-Options', 'DENY');
-
     res.send('<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Redirect...</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:system-ui;background:#0a0a0a;color:#fff;min-height:100vh;display:flex;align-items:center;justify-content:center}.c{text-align:center;padding:2rem}.sp{width:40px;height:40px;border:3px solid #333;border-top-color:#6366f1;border-radius:50%;animation:sp .8s linear infinite;margin:0 auto 1rem}@keyframes sp{to{transform:rotate(360deg)}}p{color:#888;font-size:.9rem}</style></head><body><div class="c"><div class="sp"></div><p>Weiterleitung...</p></div><script src="/v.js"><\/script></body></html>');
-
   } catch (error) {
-    console.error("❌ Redirect error:", error);
     res.status(500).send(generateErrorPage("Error", "Server error"));
   }
 });
@@ -2023,30 +1998,23 @@ app.post('/redirect-verify/:dealId', express.urlencoded({ extended: false }), as
   try {
     const dealId = InputValidator.sanitizeText(req.params.dealId, 50);
     const { s: solution, f: fingerprint, c: challenge, n: nonce } = req.body;
-
     if (!dealId || !solution || !fingerprint || !challenge || !nonce) {
       return res.status(400).json({ ok: false, e: 'Missing fields' });
     }
-
     if (!verify.validateSolution(challenge, nonce, solution)) {
       return res.status(403).json({ ok: false, e: 'Verification failed' });
     }
-
     if (!verify.checkFPLimit(fingerprint, 30, 3600000)) {
       return res.status(429).json({ ok: false, e: 'Too many requests' });
     }
-
     const snapshot = await dealsRef.child(dealId).once("value");
     const deal = snapshot.val();
     if (!deal || (deal.timer || 0) <= Date.now()) return res.status(404).json({ ok: false, e: 'Deal not found' });
     if (!InputValidator.validateURL(deal.amazonUrl)) return res.status(400).json({ ok: false, e: 'Invalid URL' });
-
-    const ot = verify.issueOTToken(fingerprint, req.ip);
+    try { await dealsRef.child(dealId).child('clicks').transaction(c => (c || 0) + 1); } catch (e) {}
     console.log(`✅ Redirect verified: ${dealId} from ${req.ip}`);
-    res.json({ ok: true, url: '/redirect/' + dealId + '?_vt=' + ot + '&_fp=' + encodeURIComponent(fingerprint) });
-
+    res.json({ ok: true, url: deal.amazonUrl });
   } catch (error) {
-    console.error("❌ Redirect verify error:", error);
     res.status(500).json({ ok: false, e: 'Server error' });
   }
 });
@@ -2055,7 +2023,6 @@ app.get('/deal/:slug', async (req, res) => {
   try {
     const slug = InputValidator.sanitizeText(req.params.slug, 100);
     if (!slug || slug.length < 3) return res.status(400).send(generateErrorPage("Invalid", "Invalid URL"));
-
     let deal = deals.find(d => d.slug === slug);
     if (!deal) {
       for (const part of slug.split('-')) {
@@ -2064,59 +2031,29 @@ app.get('/deal/:slug', async (req, res) => {
     }
     if (!deal) return res.status(404).send(generateErrorPage("Not Found", "Deal not found"));
     if (deal.timer <= Date.now()) return res.status(410).send(generateErrorPage("Expired", "Deal expired"));
-    if (!InputValidator.validateURL(deal.amazonUrl)) return res.status(400).send(generateErrorPage("Invalid", "Invalid URL"));
-
     console.log(`📄 Deal page: "${deal.title.substring(0, 40)}" from ${req.ip}`);
-
-    // If token+fp in query, validate and redirect immediately
-    const token = req.query._vt;
-    const fp = req.query._fp;
-    if (token && fp && verify.consumeOTToken(token, fp, req.ip)) {
-      if (verify.checkFPLimit(fp, 30, 3600000)) {
-        try { await dealsRef.child(deal.id).child('clicks').transaction(c => (c || 0) + 1); } catch (e) {}
-        res.setHeader('Referrer-Policy', 'no-referrer');
-        return res.redirect(302, deal.amazonUrl);
-      }
-    }
-
-    // No valid token: serve auto-redirect page
     res.setHeader('X-Robots-Tag', 'noindex, nofollow');
     res.setHeader('Referrer-Policy', 'no-referrer');
-    res.setHeader('X-Frame-Options', 'DENY');
-
     res.send('<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Redirect...</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:system-ui;background:#0a0a0a;color:#fff;min-height:100vh;display:flex;align-items:center;justify-content:center}.c{text-align:center;padding:2rem}.sp{width:40px;height:40px;border:3px solid #333;border-top-color:#6366f1;border-radius:50%;animation:sp .8s linear infinite;margin:0 auto 1rem}@keyframes sp{to{transform:rotate(360deg)}}p{color:#888;font-size:.9rem}</style></head><body><div class="c"><div class="sp"></div><p>Weiterleitung...</p></div><script src="/v.js"><\/script></body></html>');
-
   } catch (error) {
-    console.error("❌ Deal page error:", error);
     res.status(500).send(generateErrorPage("Error", "Server error"));
   }
 });
 
-// Deal redirect via POST (called by /v.js after PoW verification)
+// Deal redirect via POST - returns Amazon URL directly
 app.post('/deal-redirect/:slug', express.urlencoded({ extended: false }), async (req, res) => {
   try {
     const slug = InputValidator.sanitizeText(req.params.slug, 100);
-    const { s: solution, f: fingerprint } = req.body;
-
-    if (!slug || !solution || !fingerprint) {
+    const { s: solution, f: fingerprint, c: challenge, n: nonce } = req.body;
+    if (!slug || !solution || !fingerprint || !challenge || !nonce) {
       return res.status(400).json({ ok: false, e: 'Missing fields' });
     }
-
-    // Validate PoW
-    const challenge = req.body.c;
-    const nonce = req.body.n;
-    console.log(`🔐 Verify: slug=${slug}, hasChallenge=${!!challenge}, hasNonce=${!!nonce}, hasSolution=${!!solution}, hasFP=${!!fingerprint}`);
-    if (!challenge || !nonce || !verify.validateSolution(challenge, nonce, solution)) {
-      console.log(`❌ PoW failed for ${slug} from ${req.ip}`);
+    if (!verify.validateSolution(challenge, nonce, solution)) {
       return res.status(403).json({ ok: false, e: 'Verification failed' });
     }
-
-    // Rate limit per fingerprint (30 per hour)
     if (!verify.checkFPLimit(fingerprint, 30, 3600000)) {
       return res.status(429).json({ ok: false, e: 'Too many requests' });
     }
-
-    // Find deal
     let deal = deals.find(d => d.slug === slug);
     if (!deal) {
       for (const part of slug.split('-')) {
@@ -2125,14 +2062,10 @@ app.post('/deal-redirect/:slug', express.urlencoded({ extended: false }), async 
     }
     if (!deal || deal.timer <= Date.now()) return res.status(404).json({ ok: false, e: 'Deal not found' });
     if (!InputValidator.validateURL(deal.amazonUrl)) return res.status(400).json({ ok: false, e: 'Invalid URL' });
-
-    // Issue one-time redirect token
-    const ot = verify.issueOTToken(fingerprint, req.ip);
+    try { await dealsRef.child(deal.id).child('clicks').transaction(c => (c || 0) + 1); } catch (e) {}
     console.log(`✅ Deal verified: ${slug} from ${req.ip}`);
-    res.json({ ok: true, url: '/deal/' + slug + '?_vt=' + ot + '&_fp=' + encodeURIComponent(fingerprint) });
-
+    res.json({ ok: true, url: deal.amazonUrl });
   } catch (error) {
-    console.error("❌ Deal redirect error:", error);
     res.status(500).json({ ok: false, e: 'Server error' });
   }
 });
@@ -2143,7 +2076,7 @@ app.get('/v.js', (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
   res.send('(async function(){'
     + 'var el=document.querySelector(".c p");'
-    + 'function err(m){if(el)el.textContent=m;el.style.color="#ef4444"}'
+    + 'function err(m){if(el)el.textContent=m;if(el)el.style.color="#ef4444"}'
     + 'var P=location.pathname;'
     + 'if(P.indexOf("/deal/")!==0&&P.indexOf("/redirect/")!==0)return;'
     + 'var slug=P.replace(/^\\/[^\\/]+\\//,"");'
@@ -2157,25 +2090,22 @@ app.get('/v.js', (req, res) => {
     + 'await dl(500+Math.random()*1000);'
     + 'var f=fp();'
     + 'try{'
-    + 'var cr=await fetch("/api/verify/challenge",{method:"GET"});'
+    + 'var cr=await fetch("/api/verify/challenge");'
     + 'var ct=cr.headers.get("content-type")||"";'
-    + 'if(ct.indexOf("json")===-1){err("Server error (1)");return}'
+    + 'if(ct.indexOf("json")===-1){err("Server error");return}'
     + 'var ch=await cr.json();'
-    + 'if(!ch||!ch.challenge||!ch.nonce){err("Server error (2)");return}'
+    + 'if(!ch||!ch.challenge||!ch.nonce){err("Server error");return}'
     + 'el.textContent="Verifying...";'
     + 'var sol=await pow(ch.challenge,ch.nonce,ch.difficulty||3);'
     + 'if(!sol){err("Verification timeout");return}'
-    + 'await dl(200+Math.random()*300);'
     + 'var body="c="+encodeURIComponent(ch.challenge)+"&n="+encodeURIComponent(ch.nonce)+"&s="+encodeURIComponent(sol)+"&f="+encodeURIComponent(f);'
     + 'var isDeal=P.indexOf("/deal/")===0;'
     + 'var endpoint=isDeal?"/deal-redirect/"+slug:"/redirect-verify/"+slug;'
     + 'var r=await fetch(endpoint,{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:body});'
-    + 'var rct=r.headers.get("content-type")||"";'
-    + 'if(rct.indexOf("json")===-1){err("Server error (3)");return}'
     + 'var d=await r.json();'
     + 'if(d.ok&&d.url){location.replace(d.url)}'
     + 'else{err(d.e||"Verification failed")}'
-    + '}catch(e){err("Network error: "+e.message)}'
+    + '}catch(e){err("Network error")}'
     + '})();');
 });
 
