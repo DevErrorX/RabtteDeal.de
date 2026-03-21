@@ -455,28 +455,12 @@ class AdvancedSecurityManager {
   }
 
   blockIdentifier(identifier, duration = 300000) {
-    if (this.isCloudflareIP(identifier)) return;
-    this.blockedIPs.add(identifier);
-    setTimeout(() => this.blockedIPs.delete(identifier), duration);
-    console.warn(`🚫 Blocked identifier: ${identifier} for ${duration}ms`);
+    // IP blocking disabled - behind Cloudflare, IPs are shared edge nodes
+    return;
   }
 
   isCloudflareIP(ip) {
-    if (!ip) return false;
-    const parts = ip.split('.');
-    if (parts.length !== 4) return false;
-    const a = parseInt(parts[0]), b = parseInt(parts[1]);
-    // Cloudflare IP ranges
-    if (a === 172 && b >= 64 && b <= 127) return true;  // 172.64.0.0/10
-    if (a === 162 && b === 158) return true;              // 162.158.0.0/15
-    if (a === 104 && b >= 16 && b <= 31) return true;    // 104.16.0.0/12
-    if (a === 141 && b === 101) return true;              // 141.101.0.0/16
-    if (a === 188 && b === 114) return true;              // 188.114.0.0/16
-    if (a === 190 && b === 93) return true;               // 190.93.0.0/16
-    if (a === 197 && b === 234) return true;              // 197.234.0.0/16
-    if (a === 198 && b === 41) return true;               // 198.41.0.0/16
-    if (a === 131 && b === 0) return true;                // 131.0.0.0/24
-    return false;
+    return true; // All IPs are behind Cloudflare
   }
 
   isBlocked(identifier) {
@@ -484,15 +468,8 @@ class AdvancedSecurityManager {
   }
 
   logSuspiciousActivity(identifier, activity) {
-    if (this.isCloudflareIP(identifier)) return;
-    const key = `${identifier}-${activity}`;
-    const count = this.suspiciousActivity.get(key) || 0;
-    this.suspiciousActivity.set(key, count + 1);
-    
-    if (count > 3) {
-      this.blockIdentifier(identifier, 600000);
-      console.error(`🚨 Suspicious activity detected: ${identifier} - ${activity}`);
-    }
+    // Disabled - behind Cloudflare all IPs are shared
+    return;
   }
 
   // Bot detection method for compatibility
