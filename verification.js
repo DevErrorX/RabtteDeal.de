@@ -10,6 +10,8 @@ class VerificationSystem {
     this.honeypots = new Set();
     this.tokenUsage = new Map();
     this.requestLog = new Map();
+    this.otTokens = new Map();
+    this.fpRequests = new Map();
 
     this._generateHoneypots();
     setInterval(() => this._cleanup(), 5 * 60 * 1000);
@@ -24,14 +26,14 @@ class VerificationSystem {
     this.challenges.set(challenge, {
       nonce,
       created: Date.now(),
-      expires: Date.now() + 120000,
+      expires: Date.now() + 60000,
       solved: false
     });
 
-    return { challenge, nonce, difficulty: 3 };
+    return { challenge, nonce, difficulty: 2 };
   }
 
-  validateSolution(challenge, nonce, solution, fingerprint, ip) {
+  validateSolution(challenge, nonce, solution) {
     const data = this.challenges.get(challenge);
     if (!data || Date.now() > data.expires || data.solved) return false;
 
@@ -39,7 +41,7 @@ class VerificationSystem {
       .update(challenge + nonce + solution)
       .digest('hex');
 
-    const valid = hash.startsWith('000');
+    const valid = hash.startsWith('00');
     data.solved = valid;
     return valid;
   }
@@ -114,6 +116,42 @@ class VerificationSystem {
     if (data.fingerprint !== fingerprint) return null;
     this.redirects.delete(key);
     return data.amazonUrl;
+  }
+
+  // ==================== ONE-TIME TOKENS ====================
+
+  issueOTToken(fingerprint, ip) {
+    const token = crypto.randomBytes(24).toString('hex');
+    this.otTokens.set(token, {
+      fingerprint, ip,
+      created: Date.now(),
+      expires: Date.now() + 30000
+    });
+    return token;
+  }
+
+  consumeOTToken(token, fingerprint, ip) {
+    if (!token) return false;
+    const data = this.otTokens.get(token);
+    if (!data) return false;
+    if (Date.now() > data.expires) { this.otTokens.delete(token); return false; }
+    if (data.fingerprint !== fingerprint) return false;
+    if (data.ip !== ip) return false;
+    this.otTokens.delete(token);
+    return true;
+  }
+
+  // ==================== RATE LIMITING PER FINGERPRINT ====================
+
+  checkFPLimit(fingerprint, max = 30, windowMs = 3600000) {
+    if (!fingerprint) return false;
+    const now = Date.now();
+    const log = this.fpRequests.get(fingerprint) || [];
+    const recent = log.filter(t => now - t < windowMs);
+    if (recent.length >= max) return false;
+    recent.push(now);
+    this.fpRequests.set(fingerprint, recent);
+    return true;
   }
 
   // ==================== BOT DETECTION ====================
@@ -230,9 +268,11 @@ class VerificationSystem {
     return {
       activeChallenges: this.challenges.size,
       activeTokens: this.tokens.size,
+      oneTimeTokens: this.otTokens.size,
       pendingRedirects: this.redirects.size,
       blockedFingerprints: this.blockedFingerprints.size,
-      honeypots: this.honeypots.size
+      honeypots: this.honeypots.size,
+      trackedFingerprints: this.fpRequests.size
     };
   }
 
@@ -247,8 +287,16 @@ class VerificationSystem {
     for (const [k, v] of this.tokens) {
       if (now > v.expires) this.tokens.delete(k);
     }
+    for (const [k, v] of this.otTokens) {
+      if (now > v.expires) this.otTokens.delete(k);
+    }
     for (const [k, v] of this.redirects) {
       if (now > v.expires) this.redirects.delete(k);
+    }
+    for (const [k, v] of this.fpRequests) {
+      const recent = v.filter(t => now - t < 3600000);
+      if (recent.length === 0) this.fpRequests.delete(k);
+      else this.fpRequests.set(k, recent);
     }
     for (const [k, v] of this.tokenUsage) {
       if (v.size === 0) this.tokenUsage.delete(k);
